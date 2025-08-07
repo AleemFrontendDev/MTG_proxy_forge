@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 200 25% 25%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 200 15% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 15% 20%;
+    --primary: 15 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 10% 90%;
+    --secondary-foreground: 200 15% 20%;
+    --muted: 200 10% 92%;
+    --muted-foreground: 200 5% 45%;
+    --accent: 15 100% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 200 10% 85%;
+    --input: 200 10% 95%;
+    --ring: 15 100% 55%;
+    --chart-1: 15 100% 55%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 200 15% 20%;
+    --sidebar-primary: 15 100% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 10% 90%;
+    --sidebar-accent-foreground: 200 15% 20%;
+    --sidebar-border: 200 10% 85%;
+    --sidebar-ring: 15 100% 55%;
+  }
+  .dark {
+    --background: 200 25% 25%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 200 15% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 15% 20%;
+    --primary: 15 100% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 10% 90%;
+    --secondary-foreground: 200 15% 20%;
+    --muted: 200 10% 92%;
+    --muted-foreground: 200 5% 45%;
+    --accent: 15 100% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 200 10% 85%;
+    --input: 200 10% 95%;
+    --ring: 15 100% 55%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 200 15% 20%;
+    --sidebar-primary: 15 100% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 10% 90%;
+    --sidebar-accent-foreground: 200 15% 20%;
+    --sidebar-border: 200 10% 85%;
+    --sidebar-ring: 15 100% 55%;
+  }
+}
+input {
+  outline: none;
+}
+
+input:focus-visible {
+  outline: 1px solid #ff531a; /* or your preferred focus indicator */
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
