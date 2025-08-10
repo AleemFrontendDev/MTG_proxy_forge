@@ -1,11 +1,13 @@
-import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
-import './globals.css'
+import type React from "react"
+import type { Metadata } from "next"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import "./globals.css"
 
 export const metadata: Metadata = {
-  title: 'MTG Proxy Forge',
-  description: 'Get MTG proxies with ease',
+  title: "ProxyPrintr - MTG Proxy Card Generator",
+  description: "Create printable Magic: The Gathering proxy cards for playtesting",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -15,13 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      
       <head>
-  <link 
-    rel="icon" 
-    type="image/png" 
-    href="//mtgproxies.nl/cdn/shop/files/logo_transparant_7f807757-d066-43f1-8673-f22a34114e98.png?crop=center&height=32&v=1723500511&width=32" 
-  />
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};

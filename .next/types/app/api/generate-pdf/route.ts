@@ -1,4 +1,4 @@
-// File: C:\Users\Admin\Downloads\Mt-Latest\app\api\generate-pdf\route.ts
+// File: C:\Users\Admin\Downloads\Mt-Latest\MTG_proxy_forge\app\api\generate-pdf\route.ts
 import * as entry from '../../../../../app/api/generate-pdf/route.js'
 import type { NextRequest } from 'next/server.js'
 

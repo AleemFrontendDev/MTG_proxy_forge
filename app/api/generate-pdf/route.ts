@@ -4,6 +4,8 @@ import jsPDF from "jspdf"
 interface ParsedCard {
   quantity: number
   name: string
+  setCode?: string
+  cardNumber?: string
 }
 
 interface CardData {
@@ -18,9 +20,14 @@ interface CardData {
   }>
 }
 
-async function fetchCardImage(cardName: string): Promise<string | null> {
+async function fetchCardImage(cardName: string, setCode?: string): Promise<string | null> {
   try {
-    const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`)
+    let url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`
+    if (setCode) {
+      url += `&set=${setCode.toLowerCase()}`
+    }
+
+    const response = await fetch(url)
 
     if (!response.ok) {
       console.error(`Failed to fetch card: ${cardName}`)
@@ -72,25 +79,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Expand cards based on quantity
-    const expandedCards: string[] = []
+    const expandedCards: Array<{ name: string; setCode?: string }> = []
     for (const card of cards) {
       for (let i = 0; i < card.quantity; i++) {
-        expandedCards.push(card.name)
+        expandedCards.push({ name: card.name, setCode: card.setCode })
       }
     }
 
     // Fetch all card images
     const cardImages: Array<{ name: string; imageData: string | null }> = []
 
-    for (const cardName of expandedCards) {
-      const imageUrl = await fetchCardImage(cardName)
+    for (const card of expandedCards) {
+      const imageUrl = await fetchCardImage(card.name, card.setCode)
       let imageData: string | null = null
 
       if (imageUrl) {
         imageData = await imageToBase64(imageUrl)
       }
 
-      cardImages.push({ name: cardName, imageData })
+      cardImages.push({ name: card.name, imageData })
     }
 
     // Create PDF using jsPDF
@@ -137,14 +144,7 @@ export async function POST(request: NextRequest) {
         try {
           // Add image to PDF with padding
           const padding = 0.05
-          doc.addImage(
-            imageData,
-            "JPEG",
-            x + padding,
-            y + padding,
-            cardWidth - 2 * padding,
-            cardHeight - 2 * padding,
-          )
+          doc.addImage(imageData, "JPEG", x + padding, y + padding, cardWidth - 2 * padding, cardHeight - 2 * padding)
         } catch (error) {
           console.error(`Error adding image for ${name}:`, error)
           // Draw placeholder text
@@ -159,14 +159,14 @@ export async function POST(request: NextRequest) {
         // Draw placeholder for missing cards
         doc.setFillColor(245, 245, 245)
         doc.rect(x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, "F")
-        
+
         doc.setFontSize(12)
         doc.setTextColor(60, 60, 60)
         const textLines = doc.splitTextToSize(name, cardWidth - 0.2)
         doc.text(textLines, x + 0.1, y + cardHeight / 2 - 0.1, {
           maxWidth: cardWidth - 0.2,
         })
-        
+
         doc.setFontSize(8)
         doc.setTextColor(150, 150, 150)
         doc.text("(Image not found)", x + 0.1, y + cardHeight / 2 + 0.2, {
@@ -183,14 +183,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate PDF as Uint8Array
-    const pdfOutput = doc.output('arraybuffer')
+    const pdfOutput = doc.output("arraybuffer")
     const pdfBuffer = new Uint8Array(pdfOutput)
 
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": 'attachment; filename="mtg-proxy-cards.pdf"',
+        "Content-Disposition": 'attachment; filename="proxyprint-cards.pdf"',
         "Content-Length": pdfBuffer.length.toString(),
       },
     })
