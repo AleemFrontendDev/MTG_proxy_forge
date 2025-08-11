@@ -61,9 +61,9 @@
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 200 10% 85%;
+    /* --border: 200 10% 85%;
     --input: 200 10% 95%;
-    --ring: 15 100% 55%;
+    --ring: 15 100% 55%; */
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -79,15 +79,20 @@
     --sidebar-ring: 15 100% 55%;
   }
 }
+.focus-visible\:ring-ring:focus-visible {
+   --tw-ring-color: rgb(155, 155, 155) !important;
+}
 
 .ring-offset-background {
     --tw-ring-offset-color: transparent !important;
-    --tw-ring-offset-width: 0.5px  !important;
+    --tw-ring-offset-width: 0.25px  !important;
+    
 }
 textarea:focus-visible {
   outline: none; 
-  border: 0.5px solid #f97316 !important; 
+  border: 0.25px solid #c5c4c4 !important; 
 }
+
 
 @layer base {
   * {

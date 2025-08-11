@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Loader2, Download, FileText, Eye, ArrowLeft, X, Scroll, Edit2, Printer } from "lucide-react"
+import { Loader2, Download, FileText, Eye, ArrowLeft, Scroll, Printer } from "lucide-react"
 
 interface ParsedCard {
   quantity: number
@@ -36,8 +35,6 @@ export default function Home() {
   const [cardImages, setCardImages] = useState<CardImage[]>([])
   const [showPdfPreview, setShowPdfPreview] = useState(false)
   const [cardCount, setCardCount] = useState(0)
-  const [editingCard, setEditingCard] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -56,8 +53,12 @@ export default function Home() {
       const line = lines[i].trim()
       if (!line) continue
 
+      // Handle Moxfield format - remove "F" and treat parentheses like square brackets
+      let cleanLine = line.replace(/\bF\s+/g, "") // Remove "F " from beginning or middle
+      cleanLine = cleanLine.replace(/$$([^)]+)$$/g, "[$1]") // Convert (SET) to [SET]
+
       // Match pattern: [quantity] [card name] [optional set code] [optional card number]
-      const match = line.match(/^(\d+)\s+(.+?)(?:\s+\[([A-Z0-9]+)\])?(?:\s+(\d+))?$/i)
+      const match = cleanLine.match(/^(\d+)\s+(.+?)(?:\s+\[([A-Z0-9]+)\])?(?:\s+(\d+))?$/i)
 
       if (match) {
         const quantity = Number.parseInt(match[1])
@@ -88,100 +89,60 @@ export default function Home() {
     const total = parsed.reduce((sum, card) => sum + card.quantity, 0)
     setCardCount(total)
 
-    // Auto-fetch card images for live preview
+    // Auto-fetch card images for live preview with better error handling
     if (parsed.length > 0 && parsed.length <= 20) {
-      // Limit to prevent too many API calls
       setIsLoadingPreview(true)
+      setCardImages([]) // Clear previous images
+
       try {
         const expandedCards: Array<{ name: string; setCode?: string }> = []
         for (const card of parsed) {
-          for (let i = 0; i < Math.min(card.quantity, 3); i++) {
-            // Limit preview to 3 per card
+          for (let i = 0; i < card.quantity; i++) {
             expandedCards.push({ name: card.name, setCode: card.setCode })
           }
         }
 
         const images: CardImage[] = []
-        for (const card of expandedCards.slice(0, 9)) {
-          // Show max 9 cards in preview
-          const cardImage = await fetchCardImage(card.name, card.setCode)
-          images.push(cardImage)
-        }
+        const cardsToShow = expandedCards
 
+        // Process cards in parallel with timeout
+        const imagePromises = cardsToShow.map(async (card, index) => {
+          try {
+            const cardImage = await Promise.race([
+              fetchCardImage(card.name, card.setCode),
+              new Promise<CardImage>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000)),
+            ])
+            return { ...cardImage, index }
+          } catch (error) {
+            return {
+              name: card.name,
+              imageUrl: null,
+              error: "Failed to load",
+              index,
+            }
+          }
+        })
+
+        const results = await Promise.allSettled(imagePromises)
+
+        results.forEach((result) => {
+          if (result.status === "fulfilled") {
+            images.push(result.value)
+          }
+        })
+
+        // Sort by original index to maintain order
+        images.sort((a, b) => (a as any).index - (b as any).index)
         setCardImages(images)
       } catch (err) {
         console.error("Preview error:", err)
+        setCardImages([])
       } finally {
         setIsLoadingPreview(false)
       }
     } else {
       setCardImages([])
     }
-  }
-
-  const removeCard = (cardId: string) => {
-    const updatedCards = cards.filter((card) => card.id !== cardId)
-    setCards(updatedCards)
-
-    // Rebuild input value
-    const newInputValue = updatedCards
-      .map((card) => {
-        let line = `${card.quantity} ${card.name}`
-        if (card.setCode) line += ` [${card.setCode}]`
-        if (card.cardNumber) line += ` ${card.cardNumber}`
-        return line
-      })
-      .join("\n")
-    setInputValue(newInputValue)
-
-    const total = updatedCards.reduce((sum, card) => sum + card.quantity, 0)
-    setCardCount(total)
-  }
-
-  const startEditCard = (card: ParsedCard) => {
-    setEditingCard(card.id)
-    let editText = `${card.quantity} ${card.name}`
-    if (card.setCode) editText += ` [${card.setCode}]`
-    if (card.cardNumber) editText += ` ${card.cardNumber}`
-    setEditValue(editText)
-  }
-
-  const saveEditCard = (cardId: string) => {
-    const match = editValue.match(/^(\d+)\s+(.+?)(?:\s+\[([A-Z0-9]+)\])?(?:\s+(\d+))?$/i)
-    if (match) {
-      const quantity = Number.parseInt(match[1])
-      const name = match[2].trim()
-      const setCode = match[3]?.toUpperCase()
-      const cardNumber = match[4]
-
-      const updatedCards = cards.map((card) =>
-        card.id === cardId ? { ...card, quantity, name, setCode, cardNumber } : card,
-      )
-
-      setCards(updatedCards)
-
-      // Rebuild input value
-      const newInputValue = updatedCards
-        .map((card) => {
-          let line = `${card.quantity} ${card.name}`
-          if (card.setCode) line += ` [${card.setCode}]`
-          if (card.cardNumber) line += ` ${card.cardNumber}`
-          return line
-        })
-        .join("\n")
-      setInputValue(newInputValue)
-
-      const total = updatedCards.reduce((sum, card) => sum + card.quantity, 0)
-      setCardCount(total)
-    }
-
-    setEditingCard(null)
-    setEditValue("")
-  }
-
-  const cancelEditCard = () => {
-    setEditingCard(null)
-    setEditValue("")
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -198,7 +159,9 @@ export default function Home() {
         url += `&set=${setCode.toLowerCase()}`
       }
 
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      })
 
       if (!response.ok) {
         return { name: cardName, imageUrl: null, error: "Card not found" }
@@ -292,18 +255,6 @@ export default function Home() {
     setError("")
   }
 
-  // Professional color variants for card pills
-  const getCardPillStyle = (index: number) => {
-    const variants = [
-      "bg-orange-500 text-white border-orange-400",
-      "bg-orange-600 text-white border-orange-500",
-      "bg-orange-700 text-white border-orange-600",
-      "bg-orange-400 text-white border-orange-300",
-      "bg-orange-800 text-white border-orange-700",
-    ]
-    return variants[index % variants.length]
-  }
-
   if (showPdfPreview) {
     return (
       <div className="min-h-screen bg-gray-50 relative overflow-hidden">
@@ -317,29 +268,28 @@ export default function Home() {
         <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-orange-100/25 rounded-full blur-2xl"></div>
         <div className="absolute bottom-20 right-1/3 w-28 h-28 bg-orange-200/20 rounded-full blur-xl"></div>
         <div className="absolute top-1/3 left-1/2 w-20 h-20 bg-orange-400/10 rounded-full blur-lg"></div>
+        <div className="absolute top-60 left-1/3 w-16 h-16 bg-orange-300/20 rounded-full blur-md"></div>
 
         <div className="p-4 sm:p-6 lg:p-8 relative z-10">
           <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            {/* Header with improved layout */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
               <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  onClick={handleBackToInput}
-                  className="border-gray-300 bg-white/80 backdrop-blur-sm group transition-all duration-200 hover:bg-white/90"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  <span className="text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
-                    Back to Input
-                  </span>
-                </Button>
+                <Button 
+                variant="outline" 
+                onClick={handleBackToInput} 
+                className="border-border text-card-foreground hover:bg-muted hover:text-card-foreground bg-card"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Input
+              </Button>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 font-serif">PDF Preview</h1>
-                  <p className="text-gray-600">Total cards: {cardCount}</p>
+                  
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons aligned with header */}
               <div className="flex gap-3">
                 <Button
                   onClick={handlePrint}
@@ -364,13 +314,13 @@ export default function Home() {
               </Alert>
             )}
 
-            {/* PDF Preview */}
+            {/* PDF Preview Card */}
             <Card className="bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-gray-900 font-serif">PDF Preview</CardTitle>
-                <CardDescription className="text-gray-600">Your proxy cards are ready for printing</CardDescription>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <p className="text-lg text-gray-600 font-medium">Total Cards: {cardCount}</p>
+                  <p className="text-gray-600">Your proxy cards are ready for printing!</p>
+                </div>
                 <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden bg-white">
                   {pdfUrl ? (
                     <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
@@ -397,7 +347,6 @@ export default function Home() {
       <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/20 to-orange-100/30"></div>
       <div className="absolute inset-0 backdrop-blur-[1px]"></div>
 
-      {/* Orange glass drops */}
       <div className="absolute top-20 left-10 w-32 h-32 bg-orange-200/20 rounded-full blur-xl"></div>
       <div className="absolute top-40 right-20 w-24 h-24 bg-orange-300/15 rounded-full blur-lg"></div>
       <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-orange-100/25 rounded-full blur-2xl"></div>
@@ -410,7 +359,7 @@ export default function Home() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#f97316] font-serif drop-shadow-sm">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-orange-500 font-serif drop-shadow-sm">
                 ProxyPrintr
               </h1>
             </div>
@@ -423,20 +372,20 @@ export default function Home() {
           <Card className="mb-8 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-gray-900 font-serif text-xl sm:text-2xl">
-                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-[#f97316]" />
-                Enter Your Cards
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-black" />
+                Card List
               </CardTitle>
               <CardDescription className="text-gray-600 text-sm sm:text-base">
                 Enter each card on a new line:{" "}
-                <span className="text-orange-500 font-mono text-xs sm:text-sm">1 Sol Ring</span> or{" "}
-                <span className="text-orange-500 font-mono text-xs sm:text-sm">2 Lightning Bolt [M21] 123</span>
+                <span className="text-black font-mono text-xs sm:text-sm">1 Sol Ring</span> or{" "}
+                <span className="text-black font-mono text-xs sm:text-sm">2 Lightning Bolt [M21] 123</span>
+                
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Textarea Field */}
               <div className="space-y-2">
                 <Label htmlFor="cardInput" className="text-gray-900 font-medium">
-                  Card List (one per line)
+                  Enter your cards (one per line)
                 </Label>
                 <div className="relative">
                   <Textarea
@@ -448,7 +397,9 @@ export default function Home() {
                     placeholder={`1 Sol Ring
 2 Lightning Bolt
 3 Path to Exile [TSR] 299
-1 Black Lotus [LEA]`}
+1 Black Lotus [LEA]
+F 4 Counterspell (M21)
+2 Force of Will (EMA) 49`}
                     className="min-h-[200px] text-base sm:text-lg py-3 bg-white/70 backdrop-blur-sm border-gray-300 text-gray-900 resize-y"
                     rows={8}
                   />
@@ -468,88 +419,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Card Pills */}
-              {cards.length > 0 && (
-                <div className="space-y-3">
-                  <Label className="text-gray-900 font-medium">Card Summary</Label>
-                  <div className="flex flex-wrap gap-3 p-4 bg-gray-100/60 backdrop-blur-sm rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
-                    <TooltipProvider>
-                      {cards.map((card, index) => (
-                        <Tooltip key={card.id}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className={`group flex items-center gap-2 ${getCardPillStyle(index)} border rounded-full px-4 py-2 hover:shadow-md transition-all duration-200 animate-in slide-in-from-bottom-2`}
-                            >
-                              {editingCard === card.id ? (
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") saveEditCard(card.id)
-                                      if (e.key === "Escape") cancelEditCard()
-                                    }}
-                                    className="h-6 text-xs bg-white text-gray-800 border-0 min-w-[120px] rounded px-2"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={() => saveEditCard(card.id)}
-                                    className="text-white hover:text-green-200 text-xs"
-                                  >
-                                    ✓
-                                  </button>
-                                  <button onClick={cancelEditCard} className="text-white hover:text-red-200 text-xs">
-                                    ✕
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <span className="text-xs sm:text-sm font-bold bg-black/20 rounded-full w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center border border-white/20">
-                                    {card.quantity}
-                                  </span>
-                                  <span className="font-semibold max-w-[120px] sm:max-w-[200px] truncate text-sm sm:text-base drop-shadow-sm">
-                                    {card.name}
-                                  </span>
-                                  {(card.setCode || card.cardNumber) && (
-                                    <span className="text-xs opacity-80">
-                                      {card.setCode && `[${card.setCode}]`}
-                                      {card.cardNumber && ` ${card.cardNumber}`}
-                                    </span>
-                                  )}
-                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                      onClick={() => startEditCard(card)}
-                                      className="hover:text-white/80 transition-colors"
-                                      title="Edit card"
-                                    >
-                                      <Edit2 className="h-3 w-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => removeCard(card.id)}
-                                      className="hover:text-red-200 transition-colors"
-                                      title="Remove card"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-white border-gray-200 text-gray-900">
-                            <p>
-                              {card.quantity}x {card.name}
-                              {card.setCode && ` [${card.setCode}]`}
-                              {card.cardNumber && ` ${card.cardNumber}`}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </TooltipProvider>
-                  </div>
-                </div>
-              )}
-
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -558,78 +427,88 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          {/* Live Preview Section - Moved Below */}
-          {cards.length > 0 && (
-            <Card className="mb-8 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-gray-900 font-serif text-xl sm:text-2xl">
-                  <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
-                  Live Preview
-                </CardTitle>
-                <CardDescription className="text-gray-600 text-sm sm:text-base">
-                  {cardImages.length > 0 ? `Showing first ${cardImages.length} cards` : "Loading card images..."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingPreview ? (
-                  <div className="flex items-center justify-center h-64">
-                    <div className="text-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-2" />
-                      <p className="text-gray-600">Loading card images...</p>
+         {/* Live Preview Section */}
+            {cards.length > 0 && (
+              <Card className="mb-8 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
+                <CardHeader className="pb-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-black" />
+                      <CardTitle className="text-gray-900 font-serif text-lg sm:text-2xl">
+                        Live Preview
+                      </CardTitle>
                     </div>
-                  </div>
-                ) : cardImages.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-4">
-                    {cardImages.map((card, index) => (
-                      <div
-                        key={index}
-                        className="aspect-[2.5/3.5] border border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center hover:border-orange-400 transition-colors shadow-sm"
+                    {cards.length > 0 && (
+                      <Button
+                        onClick={handleGeneratePdf}
+                        disabled={isGeneratingPdf}
+                        className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg w-full sm:w-auto"
+                        size="lg"
                       >
-                        {card.imageUrl ? (
-                          <img
-                            src={card.imageUrl || "/placeholder.svg"}
-                            alt={card.name}
-                            className="w-full h-full object-cover"
-                            crossOrigin="anonymous"
-                          />
+                        {isGeneratingPdf ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                            Generating PDF...
+                          </>
                         ) : (
-                          <div className="text-center p-2">
-                            <p className="text-xs font-medium text-gray-900 mb-1 break-words">{card.name}</p>
-                            <p className="text-xs text-red-600">{card.error || "No image"}</p>
-                          </div>
+                          <>
+                            <Scroll className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                            Generate PDF ({cardCount} cards)
+                          </>
                         )}
-                      </div>
-                    ))}
+                      </Button>
+                    )}
                   </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          )}
+                  <CardDescription className="text-gray-600 text-sm sm:text-base mt-1">
+                    {isLoadingPreview
+                      ? "Loading card images..."
+                      : cardImages.length > 0
+                      ? `Showing all ${cardImages.length} cards`
+                      : "Preview will appear here"}
+                  </CardDescription>
+                </CardHeader>
 
-          {/* Generate PDF Button - Moved Below Live Preview */}
-          {cards.length > 0 && (
-            <div className="mb-8">
-              <Button
-                onClick={handleGeneratePdf}
-                disabled={isGeneratingPdf}
-                className="w-full bg-[#f97316] hover:bg-orange-600 text-white font-semibold text-base sm:text-lg py-4 sm:py-6 shadow-lg"
-                size="lg"
-              >
-                {isGeneratingPdf ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                    Generating PDF...
-                  </>
-                ) : (
-                  <>
-                    <Scroll className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    Generate PDF ({cardCount} cards)
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-
+                <CardContent>
+                  {isLoadingPreview ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="text-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-2" />
+                        <p className="text-gray-600">Loading card images...</p>
+                        <p className="text-xs text-gray-500 mt-1">This may take a few seconds</p>
+                      </div>
+                    </div>
+                  ) : cardImages.length > 0 ? (
+                    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-h-96 overflow-y-auto">
+                      {cardImages.map((card, index) => (
+                        <div
+                          key={index}
+                          className="aspect-[2.5/3.5] border border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center hover:border-orange-400 transition-colors shadow-sm"
+                        >
+                          {card.imageUrl ? (
+                            <img
+                              src={card.imageUrl || "/placeholder.svg"}
+                              alt={card.name}
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="text-center p-2">
+                              <p className="text-xs font-medium text-gray-900 mb-1 break-words">{card.name}</p>
+                              <p className="text-xs text-red-600">{card.error || "No image"}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-32 text-gray-500">
+                      <p>Enter cards above to see preview</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           {/* Footer */}
           <div className="text-center text-gray-500 text-xs sm:text-sm">
             <p className="flex items-center justify-center gap-2 flex-wrap">
