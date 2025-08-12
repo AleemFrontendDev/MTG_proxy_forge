@@ -24,7 +24,6 @@ interface CardImage {
   error?: string
 }
 
-// ---- DEBOUNCE UTILITY ----
 function debounce<T extends (...args: any[]) => void>(func: T, wait: number) {
   let timeout: ReturnType<typeof setTimeout> | null
   return (...args: Parameters<T>) => {
@@ -33,7 +32,7 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number) {
   }
 }
 
-const DEBOUNCE_DELAY = 500 // ms
+const DEBOUNCE_DELAY = 500 
 
 export default function Home() {
   const [inputValue, setInputValue] = useState("")
@@ -60,10 +59,8 @@ export default function Home() {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       if (!line) continue
-      // Handle Moxfield format - remove "F " and treat parentheses like square brackets
-      let cleanLine = line.replace(/\bF\s+/g, "") // Remove "F " from beginning or middle
-      cleanLine = cleanLine.replace(/$$([^)]+)$$/g, "[$1]") // Convert (SET) to [SET]
-      // Match pattern: [quantity] [card name] [optional set code] [optional card number]
+      let cleanLine = line.replace(/\bF\s+/g, "") 
+      cleanLine = cleanLine.replace(/$$([^)]+)$$/g, "[$1]") 
       const match = cleanLine.match(/^(\d+)\s+(.+?)(?:\s+\[([A-Z0-9]+)\])?(?:\s+(\d+))?$/i)
       if (match) {
         const quantity = Number.parseInt(match[1])
@@ -84,7 +81,6 @@ export default function Home() {
     return entries
   }
 
-  // ---- DEBOUNCED PREVIEW SHOWING ALL CARDS ----
   const debouncedPreview = useCallback(
     debounce(async (parsed: ParsedCard[]) => {
       if (parsed.length > 0) {
@@ -92,14 +88,11 @@ export default function Home() {
         setCardImages([])
 
         try {
-          // Build key for each unique card (name+setCode)
           const uniqueCards: Record<string, { name: string; setCode?: string }> = {}
           for (const card of parsed) {
             const key = (card.name + (card.setCode ?? "")).toLowerCase()
             uniqueCards[key] = { name: card.name, setCode: card.setCode }
           }
-
-          // Fetch images for each unique card
           const uniqueCardArray = Object.values(uniqueCards)
           const fetchImagePromises = uniqueCardArray.map(async (card) => {
             try {
@@ -119,11 +112,8 @@ export default function Home() {
           })
 
           const imageResults = await Promise.all(fetchImagePromises)
-          // Map card key to its image
           const imageMap: Record<string, CardImage> = {}
           imageResults.forEach(res => { imageMap[res.key] = res; })
-
-          // For each card in parsed list, add quantity images
           const fullPreview: CardImage[] = []
           for (const card of parsed) {
             const key = (card.name + (card.setCode ?? "")).toLowerCase()
@@ -145,8 +135,6 @@ export default function Home() {
     }, DEBOUNCE_DELAY),
     []
   )
-
-  // ---- MAIN INPUT HANDLER ----
   const handleInputChange = (value: string) => {
     setInputValue(value)
     const parsed = parseInput(value)
@@ -259,7 +247,6 @@ export default function Home() {
       <div className="min-h-screen bg-gray-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/20 to-orange-100/30"></div>
         <div className="absolute inset-0 backdrop-blur-[1px]"></div>
-        {/* ... drop glass visuals ... */}
         <div className="p-4 sm:p-6 lg:p-8 relative z-10">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
@@ -330,15 +317,20 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/20 to-orange-100/30"></div>
       <div className="absolute inset-0 backdrop-blur-[1px]"></div>
-      {/* ... drop glass visuals ... */}
       <div className="p-4 sm:p-6 lg:p-8 relative z-10">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-orange-500 font-serif drop-shadow-sm">
-                ProxyPrintr
-              </h1>
+              <img
+    src="/image.png"
+    alt="ProxyPrintr logo"
+    className="h-14 w-14"
+    style={{ minWidth: "48px" }}
+  />
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif text-[#34494F] tracking-wide">
+      ProxyPrintr
+    </h1>
             </div>
             <p className="text-gray-600 text-base sm:text-lg px-4">
               Craft printable proxy cards from your Magic: The Gathering collection
@@ -347,8 +339,8 @@ export default function Home() {
           {/* Main Input Card */}
           <Card className="mb-8 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-gray-900 font-serif text-xl sm:text-2xl">
-                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-black" />
+              <CardTitle className="flex items-center gap-2 text-[#34494F] font-serif text-xl sm:text-2xl">
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-[#34494F]" />
                 Card List
               </CardTitle>
               <CardDescription className="text-gray-600 text-sm sm:text-base">
@@ -427,8 +419,8 @@ export default function Home() {
               <CardHeader className="pb-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
-                    <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-black" />
-                    <CardTitle className="text-gray-900 font-serif text-lg sm:text-2xl">
+                    <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-[#34494F]" />
+                    <CardTitle className="text-[#34494F] font-serif text-lg sm:text-2xl">
                       Live Preview
                     </CardTitle>
                   </div>

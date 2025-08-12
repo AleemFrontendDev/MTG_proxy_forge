@@ -1,3 +1,9 @@
 {
-  "pages": {}
+  "pages": {
+    "/api/generate-pdf/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/generate-pdf/route.js"
+    ]
+  }
 }

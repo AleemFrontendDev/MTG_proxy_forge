@@ -17,11 +17,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link 
-    rel="icon" 
-    type="image/png" 
-    href="//mtgproxies.nl/cdn/shop/files/logo_transparant_7f807757-d066-43f1-8673-f22a34114e98.png?crop=center&height=32&v=1723500511&width=32" 
-  />
+       <link rel="icon" type="image/png" href="logo.png" />
+
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};
