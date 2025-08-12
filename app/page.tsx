@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,6 +24,17 @@ interface CardImage {
   error?: string
 }
 
+// ---- DEBOUNCE UTILITY ----
+function debounce<T extends (...args: any[]) => void>(func: T, wait: number) {
+  let timeout: ReturnType<typeof setTimeout> | null
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(() => func(...args), wait)
+  }
+}
+
+const DEBOUNCE_DELAY = 500 // ms
+
 export default function Home() {
   const [inputValue, setInputValue] = useState("")
   const [cards, setCards] = useState<ParsedCard[]>([])
@@ -45,27 +55,21 @@ export default function Home() {
 
   const parseInput = (value: string): ParsedCard[] => {
     if (!value.trim()) return []
-
     const lines = value.trim().split("\n")
     const entries: ParsedCard[] = []
-
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
       if (!line) continue
-
-      // Handle Moxfield format - remove "F" and treat parentheses like square brackets
+      // Handle Moxfield format - remove "F " and treat parentheses like square brackets
       let cleanLine = line.replace(/\bF\s+/g, "") // Remove "F " from beginning or middle
       cleanLine = cleanLine.replace(/$$([^)]+)$$/g, "[$1]") // Convert (SET) to [SET]
-
       // Match pattern: [quantity] [card name] [optional set code] [optional card number]
       const match = cleanLine.match(/^(\d+)\s+(.+?)(?:\s+\[([A-Z0-9]+)\])?(?:\s+(\d+))?$/i)
-
       if (match) {
         const quantity = Number.parseInt(match[1])
         const name = match[2].trim()
         const setCode = match[3]?.toUpperCase()
         const cardNumber = match[4]
-
         if (name && quantity > 0) {
           entries.push({
             quantity,
@@ -77,72 +81,79 @@ export default function Home() {
         }
       }
     }
-
     return entries
   }
 
-  const handleInputChange = async (value: string) => {
+  // ---- DEBOUNCED PREVIEW SHOWING ALL CARDS ----
+  const debouncedPreview = useCallback(
+    debounce(async (parsed: ParsedCard[]) => {
+      if (parsed.length > 0) {
+        setIsLoadingPreview(true)
+        setCardImages([])
+
+        try {
+          // Build key for each unique card (name+setCode)
+          const uniqueCards: Record<string, { name: string; setCode?: string }> = {}
+          for (const card of parsed) {
+            const key = (card.name + (card.setCode ?? "")).toLowerCase()
+            uniqueCards[key] = { name: card.name, setCode: card.setCode }
+          }
+
+          // Fetch images for each unique card
+          const uniqueCardArray = Object.values(uniqueCards)
+          const fetchImagePromises = uniqueCardArray.map(async (card) => {
+            try {
+              const cardImage = await Promise.race([
+                fetchCardImage(card.name, card.setCode),
+                new Promise<CardImage>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000)),
+              ])
+              return { key: (card.name + (card.setCode ?? "")).toLowerCase(), ...cardImage }
+            } catch {
+              return {
+                key: (card.name + (card.setCode ?? "")).toLowerCase(),
+                name: card.name,
+                imageUrl: null,
+                error: "Failed to load",
+              }
+            }
+          })
+
+          const imageResults = await Promise.all(fetchImagePromises)
+          // Map card key to its image
+          const imageMap: Record<string, CardImage> = {}
+          imageResults.forEach(res => { imageMap[res.key] = res; })
+
+          // For each card in parsed list, add quantity images
+          const fullPreview: CardImage[] = []
+          for (const card of parsed) {
+            const key = (card.name + (card.setCode ?? "")).toLowerCase()
+            for (let i = 0; i < card.quantity; i++) {
+              fullPreview.push(imageMap[key] ?? { name: card.name, imageUrl: null, error: "No image found" })
+            }
+          }
+          setCardImages(fullPreview)
+
+        } catch (err) {
+          console.error("Preview error:", err)
+          setCardImages([])
+        } finally {
+          setIsLoadingPreview(false)
+        }
+      } else {
+        setCardImages([])
+      }
+    }, DEBOUNCE_DELAY),
+    []
+  )
+
+  // ---- MAIN INPUT HANDLER ----
+  const handleInputChange = (value: string) => {
     setInputValue(value)
     const parsed = parseInput(value)
     setCards(parsed)
-
     const total = parsed.reduce((sum, card) => sum + card.quantity, 0)
     setCardCount(total)
-
-    // Auto-fetch card images for live preview with better error handling
-    if (parsed.length > 0 && parsed.length <= 20) {
-      setIsLoadingPreview(true)
-      setCardImages([]) // Clear previous images
-
-      try {
-        const expandedCards: Array<{ name: string; setCode?: string }> = []
-        for (const card of parsed) {
-          for (let i = 0; i < card.quantity; i++) {
-            expandedCards.push({ name: card.name, setCode: card.setCode })
-          }
-        }
-
-        const images: CardImage[] = []
-        const cardsToShow = expandedCards
-
-        // Process cards in parallel with timeout
-        const imagePromises = cardsToShow.map(async (card, index) => {
-          try {
-            const cardImage = await Promise.race([
-              fetchCardImage(card.name, card.setCode),
-              new Promise<CardImage>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000)),
-            ])
-            return { ...cardImage, index }
-          } catch (error) {
-            return {
-              name: card.name,
-              imageUrl: null,
-              error: "Failed to load",
-              index,
-            }
-          }
-        })
-
-        const results = await Promise.allSettled(imagePromises)
-
-        results.forEach((result) => {
-          if (result.status === "fulfilled") {
-            images.push(result.value)
-          }
-        })
-
-        // Sort by original index to maintain order
-        images.sort((a, b) => (a as any).index - (b as any).index)
-        setCardImages(images)
-      } catch (err) {
-        console.error("Preview error:", err)
-        setCardImages([])
-      } finally {
-        setIsLoadingPreview(false)
-      }
-    } else {
-      setCardImages([])
-    }
+    debouncedPreview(parsed)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -158,25 +169,19 @@ export default function Home() {
       if (setCode) {
         url += `&set=${setCode.toLowerCase()}`
       }
-
       const response = await fetch(url, {
         signal: AbortSignal.timeout(5000), // 5 second timeout
       })
-
       if (!response.ok) {
         return { name: cardName, imageUrl: null, error: "Card not found" }
       }
-
       const cardData = await response.json()
-
       if (cardData.card_faces && cardData.card_faces[0]?.image_uris?.normal) {
         return { name: cardName, imageUrl: cardData.card_faces[0].image_uris.normal }
       }
-
       if (cardData.image_uris?.normal) {
         return { name: cardName, imageUrl: cardData.image_uris.normal }
       }
-
       return { name: cardName, imageUrl: null, error: "No image available" }
     } catch (error) {
       return { name: cardName, imageUrl: null, error: "Failed to fetch" }
@@ -188,10 +193,8 @@ export default function Home() {
       setError("Please enter some cards first")
       return
     }
-
     setIsGeneratingPdf(true)
     setError("")
-
     try {
       const response = await fetch("/api/generate-pdf", {
         method: "POST",
@@ -200,21 +203,17 @@ export default function Home() {
         },
         body: JSON.stringify({ cards }),
       })
-
       if (!response.ok) {
         const errorText = await response.text()
         let errorMessage = "Failed to generate PDF"
-
         try {
           const errorData = JSON.parse(errorText)
           errorMessage = errorData.error || errorMessage
         } catch {
           errorMessage = errorText || errorMessage
         }
-
         throw new Error(errorMessage)
       }
-
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       setPdfUrl(url)
@@ -258,38 +257,26 @@ export default function Home() {
   if (showPdfPreview) {
     return (
       <div className="min-h-screen bg-gray-50 relative overflow-hidden">
-        {/* Glass effect background with orange drops */}
         <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/20 to-orange-100/30"></div>
         <div className="absolute inset-0 backdrop-blur-[1px]"></div>
-
-        {/* Orange glass drops */}
-        <div className="absolute top-20 left-10 w-32 h-32 bg-orange-200/20 rounded-full blur-xl"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 bg-orange-300/15 rounded-full blur-lg"></div>
-        <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-orange-100/25 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-20 right-1/3 w-28 h-28 bg-orange-200/20 rounded-full blur-xl"></div>
-        <div className="absolute top-1/3 left-1/2 w-20 h-20 bg-orange-400/10 rounded-full blur-lg"></div>
-        <div className="absolute top-60 left-1/3 w-16 h-16 bg-orange-300/20 rounded-full blur-md"></div>
-
+        {/* ... drop glass visuals ... */}
         <div className="p-4 sm:p-6 lg:p-8 relative z-10">
           <div className="max-w-4xl mx-auto">
-            {/* Header with improved layout */}
+            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
               <div className="flex items-center gap-4">
                 <Button 
-                variant="outline" 
-                onClick={handleBackToInput} 
-                className="border-border text-card-foreground hover:bg-muted hover:text-card-foreground bg-card"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Input
-              </Button>
+                  variant="outline" 
+                  onClick={handleBackToInput} 
+                  className="border-border text-card-foreground hover:bg-muted hover:text-card-foreground bg-card"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Input
+                </Button>
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 font-serif">PDF Preview</h1>
-                  
                 </div>
               </div>
-
-              {/* Action Buttons aligned with header */}
               <div className="flex gap-3">
                 <Button
                   onClick={handlePrint}
@@ -307,14 +294,11 @@ export default function Home() {
                 </Button>
               </div>
             </div>
-
             {error && (
               <Alert variant="destructive" className="mb-6">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-
-            {/* PDF Preview Card */}
             <Card className="bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
               <CardContent className="p-6">
                 <div className="mb-4">
@@ -324,6 +308,7 @@ export default function Home() {
                 <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden bg-white">
                   {pdfUrl ? (
                     <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
+                    
                   ) : (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
@@ -343,17 +328,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 relative overflow-hidden">
-      {/* Glass effect background with orange drops */}
       <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/20 to-orange-100/30"></div>
       <div className="absolute inset-0 backdrop-blur-[1px]"></div>
-
-      <div className="absolute top-20 left-10 w-32 h-32 bg-orange-200/20 rounded-full blur-xl"></div>
-      <div className="absolute top-40 right-20 w-24 h-24 bg-orange-300/15 rounded-full blur-lg"></div>
-      <div className="absolute bottom-32 left-1/4 w-40 h-40 bg-orange-100/25 rounded-full blur-2xl"></div>
-      <div className="absolute bottom-20 right-1/3 w-28 h-28 bg-orange-200/20 rounded-full blur-xl"></div>
-      <div className="absolute top-1/3 left-1/2 w-20 h-20 bg-orange-400/10 rounded-full blur-lg"></div>
-      <div className="absolute top-60 left-1/3 w-16 h-16 bg-orange-300/20 rounded-full blur-md"></div>
-
+      {/* ... drop glass visuals ... */}
       <div className="p-4 sm:p-6 lg:p-8 relative z-10">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -367,7 +344,6 @@ export default function Home() {
               Craft printable proxy cards from your Magic: The Gathering collection
             </p>
           </div>
-
           {/* Main Input Card */}
           <Card className="mb-8 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
             <CardHeader className="pb-4">
@@ -376,10 +352,9 @@ export default function Home() {
                 Card List
               </CardTitle>
               <CardDescription className="text-gray-600 text-sm sm:text-base">
-                Enter each card on a new line:{" "}
+                Enter each card on a new line using the format:{" "}
                 <span className="text-black font-mono text-xs sm:text-sm">1 Sol Ring</span> or{" "}
                 <span className="text-black font-mono text-xs sm:text-sm">2 Lightning Bolt [M21] 123</span>
-                
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -398,7 +373,7 @@ export default function Home() {
 2 Lightning Bolt
 3 Path to Exile [TSR] 299
 1 Black Lotus [LEA]
-F 4 Counterspell (M21)
+4 Counterspell (M21)
 2 Force of Will (EMA) 49`}
                     className="min-h-[200px] text-base sm:text-lg py-3 bg-white/70 backdrop-blur-sm border-gray-300 text-gray-900 resize-y"
                     rows={8}
@@ -418,7 +393,6 @@ F 4 Counterspell (M21)
                   Press Ctrl+Enter to generate PDF • Format: [quantity] [card name] [set code] [card number]
                 </p>
               </div>
-
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -426,89 +400,108 @@ F 4 Counterspell (M21)
               )}
             </CardContent>
           </Card>
-
-         {/* Live Preview Section */}
-            {cards.length > 0 && (
-              <Card className="mb-8 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
-                <CardHeader className="pb-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-black" />
-                      <CardTitle className="text-gray-900 font-serif text-lg sm:text-2xl">
-                        Live Preview
-                      </CardTitle>
-                    </div>
-                    {cards.length > 0 && (
-                      <Button
-                        onClick={handleGeneratePdf}
-                        disabled={isGeneratingPdf}
-                        className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg w-full sm:w-auto"
-                        size="lg"
-                      >
-                        {isGeneratingPdf ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                            Generating PDF...
-                          </>
-                        ) : (
-                          <>
-                            <Scroll className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                            Generate PDF ({cardCount} cards)
-                          </>
-                        )}
-                      </Button>
-                    )}
+          <div className="flex items-center justify-end mb-[10px]"> {cards.length > 0 && (
+                    <Button
+                      onClick={handleGeneratePdf}
+                      disabled={isGeneratingPdf}
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg w-full sm:w-auto"
+                      size="lg"
+                    >
+                      {isGeneratingPdf ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                          Generating PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Scroll className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                          Generate PDF ({cardCount} cards)
+                        </>
+                      )}
+                    </Button>
+                  )}</div>
+          
+          {/* Live Preview Section */}
+          {cards.length > 0 && (
+            <Card className="mb-8 bg-white/80 backdrop-blur-sm border-gray-200 shadow-lg">
+              <CardHeader className="pb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-5 w-5 sm:h-6 sm:w-6 text-black" />
+                    <CardTitle className="text-gray-900 font-serif text-lg sm:text-2xl">
+                      Live Preview
+                    </CardTitle>
                   </div>
-                  <CardDescription className="text-gray-600 text-sm sm:text-base mt-1">
-                    {isLoadingPreview
-                      ? "Loading card images..."
-                      : cardImages.length > 0
-                      ? `Showing all ${cardImages.length} cards`
-                      : "Preview will appear here"}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  {isLoadingPreview ? (
-                    <div className="flex items-center justify-center h-64">
-                      <div className="text-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-2" />
-                        <p className="text-gray-600">Loading card images...</p>
-                        <p className="text-xs text-gray-500 mt-1">This may take a few seconds</p>
+                  {/* {cards.length > 0 && (
+                    <Button
+                      onClick={handleGeneratePdf}
+                      disabled={isGeneratingPdf}
+                      className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg w-full sm:w-auto"
+                      size="lg"
+                    >
+                      {isGeneratingPdf ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                          Generating PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Scroll className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                          Generate PDF ({cardCount} cards)
+                        </>
+                      )}
+                    </Button>
+                  )} */}
+                </div>
+                <CardDescription className="text-gray-600 text-sm sm:text-base mt-1">
+                  {isLoadingPreview
+                    ? "Loading card images..."
+                    : cardImages.length > 0
+                    ? `Showing all ${cardImages.length} cards`
+                    : "Preview will appear here"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPreview ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-2" />
+                      <p className="text-gray-600">Loading card images...</p>
+                      <p className="text-xs text-gray-500 mt-1">This may take a few seconds</p>
+                    </div>
+                  </div>
+                ) : cardImages.length > 0 ? (
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-h-96 overflow-y-auto">
+                    {cardImages.map((card, index) => (
+                      <div
+                        key={index}
+                        className="aspect-[2.5/3.5] border border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center hover:border-orange-400 transition-colors shadow-sm"
+                      >
+                        {card.imageUrl ? (
+                          <img
+                            src={card.imageUrl || "/placeholder.svg"}
+                            alt={card.name}
+                            className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="text-center p-2">
+                            <p className="text-xs font-medium text-gray-900 mb-1 break-words">{card.name}</p>
+                            <p className="text-xs text-red-600">{card.error || "No image"}</p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ) : cardImages.length > 0 ? (
-                    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 max-h-96 overflow-y-auto">
-                      {cardImages.map((card, index) => (
-                        <div
-                          key={index}
-                          className="aspect-[2.5/3.5] border border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center hover:border-orange-400 transition-colors shadow-sm"
-                        >
-                          {card.imageUrl ? (
-                            <img
-                              src={card.imageUrl || "/placeholder.svg"}
-                              alt={card.name}
-                              className="w-full h-full object-cover"
-                              crossOrigin="anonymous"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="text-center p-2">
-                              <p className="text-xs font-medium text-gray-900 mb-1 break-words">{card.name}</p>
-                              <p className="text-xs text-red-600">{card.error || "No image"}</p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-32 text-gray-500">
-                      <p>Enter cards above to see preview</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-32 text-gray-500">
+                    <p>Enter cards above to see preview</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           {/* Footer */}
           <div className="text-center text-gray-500 text-xs sm:text-sm">
             <p className="flex items-center justify-center gap-2 flex-wrap">

@@ -7,7 +7,6 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "ProxyPrintr - MTG Proxy Card Generator",
   description: "Create printable Magic: The Gathering proxy cards for playtesting",
-  generator: "v0.dev",
 }
 
 export default function RootLayout({
