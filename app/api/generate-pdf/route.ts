@@ -48,6 +48,7 @@ async function fetchCardImage(cardName: string, setCode?: string): Promise<strin
     return null
   }
 }
+
 async function imageToBase64(url: string): Promise<string | null> {
   try {
     const response = await fetch(url)
@@ -65,11 +66,12 @@ async function imageToBase64(url: string): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   try {
-    const { cards }: { cards: ParsedCard[] } = await request.json()
+    const { cards, layout = "self-cut" }: { cards: ParsedCard[]; layout?: "self-cut" | "avery" } = await request.json()
 
     if (!cards || cards.length === 0) {
       return NextResponse.json({ error: "No cards provided" }, { status: 400 })
     }
+
     const uniqueCardsMap = new Map<string, { name: string; setCode?: string }>()
     for (const card of cards) {
       const key = (card.name + (card.setCode || "")).toLowerCase()
@@ -101,14 +103,44 @@ export async function POST(request: NextRequest) {
     const usableWidth = pageWidth - 2 * margin
     const usableHeight = pageHeight - 2 * margin
 
-    // Avery 3x2 grid layout (3 columns, 2 rows)
-    const cardWidth = usableWidth / 3
-    const cardHeight = usableHeight / 2
+    // Layout-specific dimensions
+    let cardWidth: number
+    let cardHeight: number
+    let cardsPerPage: number
+    let cols: number
+    let rows: number
+    let startX: number
+    let startY: number
+
+    if (layout === "avery") {
+      // Avery 95328: 3 columns x 2 rows (6 cards per page)
+      // Standard business card size: 2.5" x 3.5"
+      cols = 3
+      rows = 2
+      cardsPerPage = 6
+      cardWidth = 2.5
+      cardHeight = 3.5
+
+      // Center the cards on the page
+      const totalWidth = cols * cardWidth
+      const totalHeight = rows * cardHeight
+      startX = (pageWidth - totalWidth) / 2
+      startY = (pageHeight - totalHeight) / 2
+    } else {
+      // Self-cut: 3 columns x 3 rows (9 cards per page)
+      cols = 3
+      rows = 3
+      cardsPerPage = 9
+      cardWidth = usableWidth / 3
+      cardHeight = usableHeight / 3
+      startX = margin
+      startY = margin
+    }
 
     let cardsOnCurrentPage = 0
     let isFirstCard = true
 
-    // 5. Loop through input cards and add images to PDF as per quantity
+    // Loop through input cards and add images to PDF as per quantity
     for (const card of cards) {
       const key = (card.name + (card.setCode || "")).toLowerCase()
       const imageData = imageDataMap.get(key)
@@ -121,11 +153,11 @@ export async function POST(request: NextRequest) {
         isFirstCard = false
 
         // Calculate row and col based on cards placed so far on current page
-        const row = Math.floor(cardsOnCurrentPage / 3) // 0 or 1
-        const col = cardsOnCurrentPage % 3             // 0, 1, or 2
+        const row = Math.floor(cardsOnCurrentPage / cols)
+        const col = cardsOnCurrentPage % cols
 
-        const x = margin + col * cardWidth
-        const y = margin + row * cardHeight
+        const x = startX + col * cardWidth
+        const y = startY + row * cardHeight
 
         // Draw border for each card slot
         doc.setDrawColor(200, 200, 200)
@@ -135,27 +167,45 @@ export async function POST(request: NextRequest) {
         if (imageData) {
           try {
             const padding = 0.05
-            doc.addImage(
-              imageData,
-              "JPEG",
-              x + padding,
-              y + padding,
-              cardWidth - 2 * padding,
-              cardHeight - 2 * padding
-            )
+            doc.addImage(imageData, "JPEG", x + padding, y + padding, cardWidth - 2 * padding, cardHeight - 2 * padding)
           } catch (error) {
             console.error(`Error adding image for ${card.name}:`, error)
+            // Draw placeholder for failed images
+            doc.setFillColor(245, 245, 245)
+            doc.rect(x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, "F")
+
+            // Add card name as text
+            doc.setFontSize(8)
+            doc.setTextColor(100, 100, 100)
+            const textLines = doc.splitTextToSize(card.name, cardWidth - 0.2)
+            doc.text(textLines, x + 0.1, y + cardHeight / 2, {
+              maxWidth: cardWidth - 0.2,
+            })
           }
         } else {
           // Draw gray placeholder for missing images
           doc.setFillColor(245, 245, 245)
           doc.rect(x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, "F")
+
+          // Add card name as text
+          doc.setFontSize(10)
+          doc.setTextColor(60, 60, 60)
+          const textLines = doc.splitTextToSize(card.name, cardWidth - 0.2)
+          doc.text(textLines, x + 0.1, y + cardHeight / 2 - 0.1, {
+            maxWidth: cardWidth - 0.2,
+          })
+
+          doc.setFontSize(8)
+          doc.setTextColor(150, 150, 150)
+          doc.text("(Image not found)", x + 0.1, y + cardHeight / 2 + 0.2, {
+            maxWidth: cardWidth - 0.2,
+          })
         }
 
         cardsOnCurrentPage++
 
-        // Reset after filling 6 cards (3 columns × 2 rows) per page
-        if (cardsOnCurrentPage === 6) {
+        // Reset after filling page
+        if (cardsOnCurrentPage === cardsPerPage) {
           cardsOnCurrentPage = 0
         }
       }
@@ -165,13 +215,20 @@ export async function POST(request: NextRequest) {
     const pdfOutput = doc.output("arraybuffer")
     const pdfBuffer = new Uint8Array(pdfOutput)
 
-    // Return PDF binary response with appropriate headers
+    // Return PDF binary response with appropriate headers for iframe display
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": 'attachment; filename="proxyprint-cards.pdf"',
+        "Content-Disposition": 'inline; filename="proxyprint-cards.pdf"',
         "Content-Length": pdfBuffer.length.toString(),
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+        "X-Content-Type-Options": "nosniff",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
       },
     })
   } catch (error) {
@@ -180,7 +237,7 @@ export async function POST(request: NextRequest) {
       {
         error: error instanceof Error ? error.message : "Failed to generate PDF",
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

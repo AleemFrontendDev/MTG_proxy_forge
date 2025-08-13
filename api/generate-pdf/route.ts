@@ -1,9 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jsPDF from "jspdf"
+import { Buffer } from "buffer"
 
 interface ParsedCard {
   quantity: number
   name: string
+  setCode?: string
+  cardNumber?: string
 }
 
 interface CardData {
@@ -18,9 +21,14 @@ interface CardData {
   }>
 }
 
-async function fetchCardImage(cardName: string): Promise<string | null> {
+async function fetchCardImage(cardName: string, setCode?: string): Promise<string | null> {
   try {
-    const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`)
+    let url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`
+    if (setCode) {
+      url += `&set=${setCode.toLowerCase()}`
+    }
+
+    const response = await fetch(url)
 
     if (!response.ok) {
       console.error(`Failed to fetch card: ${cardName}`)
@@ -28,13 +36,9 @@ async function fetchCardImage(cardName: string): Promise<string | null> {
     }
 
     const cardData: CardData = await response.json()
-
-    // Handle double-faced cards
     if (cardData.card_faces && cardData.card_faces[0]?.image_uris?.normal) {
       return cardData.card_faces[0].image_uris.normal
     }
-
-    // Handle normal cards
     if (cardData.image_uris?.normal) {
       return cardData.image_uris.normal
     }
@@ -54,10 +58,7 @@ async function imageToBase64(url: string): Promise<string | null> {
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const base64 = buffer.toString("base64")
-
-    // Determine image type from URL or default to JPEG
-    const imageType = url.toLowerCase().includes(".png") ? "PNG" : "JPEG"
-    return `data:image/${imageType.toLowerCase()};base64,${base64}`
+    return `data:image/jpeg;base64,${base64}`
   } catch (error) {
     console.error("Error converting image to base64:", error)
     return null
@@ -66,115 +67,163 @@ async function imageToBase64(url: string): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   try {
-    const { cards }: { cards: ParsedCard[] } = await request.json()
+    const { cards, layout = "self-cut" }: { cards: ParsedCard[]; layout?: "self-cut" | "avery" } = await request.json()
 
     if (!cards || cards.length === 0) {
       return NextResponse.json({ error: "No cards provided" }, { status: 400 })
     }
 
-    // Expand cards based on quantity
-    const expandedCards: string[] = []
+    const uniqueCardsMap = new Map<string, { name: string; setCode?: string }>()
     for (const card of cards) {
-      for (let i = 0; i < card.quantity; i++) {
-        expandedCards.push(card.name)
+      const key = (card.name + (card.setCode || "")).toLowerCase()
+      if (!uniqueCardsMap.has(key)) {
+        uniqueCardsMap.set(key, { name: card.name, setCode: card.setCode })
       }
     }
-
-    // Fetch all card images
-    const cardImages: Array<{ name: string; imageData: string | null }> = []
-
-    for (const cardName of expandedCards) {
-      const imageUrl = await fetchCardImage(cardName)
-      let imageData: string | null = null
-
-      if (imageUrl) {
-        imageData = await imageToBase64(imageUrl)
-      }
-
-      cardImages.push({ name: cardName, imageData })
-    }
-
-    // Create PDF using jsPDF
+    const uniqueCardsArray = Array.from(uniqueCardsMap.values())
+    const imagePromises = uniqueCardsArray.map(async (card) => {
+      const imageUrl = await fetchCardImage(card.name, card.setCode)
+      const imageData = imageUrl ? await imageToBase64(imageUrl) : null
+      return { key: (card.name + (card.setCode || "")).toLowerCase(), imageData }
+    })
+    const images = await Promise.all(imagePromises)
+    const imageDataMap = new Map<string, string | null>()
+    images.forEach(({ key, imageData }) => {
+      imageDataMap.set(key, imageData)
+    })
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "in",
       format: "letter",
     })
 
-    // Calculate dimensions for 3x3 grid on 8.5" x 11" page
+    // Setup page size and margins (Letter 8.5 x 11 inches)
     const pageWidth = 8.5
     const pageHeight = 11
     const margin = 0.5
     const usableWidth = pageWidth - 2 * margin
     const usableHeight = pageHeight - 2 * margin
 
-    const cardWidth = usableWidth / 3
-    const cardHeight = usableHeight / 3
+    // Layout-specific dimensions
+    let cardWidth: number
+    let cardHeight: number
+    let cardsPerPage: number
+    let cols: number
+    let rows: number
+    let startX: number
+    let startY: number
+
+    if (layout === "avery") {
+      // Avery 95328: 3 columns x 2 rows (6 cards per page)
+      // Standard business card size: 2.5" x 3.5"
+      cols = 3
+      rows = 2
+      cardsPerPage = 6
+      cardWidth = 2.5
+      cardHeight = 3.5
+
+      // Center the cards on the page
+      const totalWidth = cols * cardWidth
+      const totalHeight = rows * cardHeight
+      startX = (pageWidth - totalWidth) / 2
+      startY = (pageHeight - totalHeight) / 2
+    } else {
+      // Self-cut: 3 columns x 3 rows (9 cards per page)
+      cols = 3
+      rows = 3
+      cardsPerPage = 9
+      cardWidth = usableWidth / 3
+      cardHeight = usableHeight / 3
+      startX = margin
+      startY = margin
+    }
 
     let cardsOnCurrentPage = 0
+    let isFirstCard = true
 
-    for (let i = 0; i < cardImages.length; i++) {
-      const { name, imageData } = cardImages[i]
+    // Loop through input cards and add images to PDF as per quantity
+    for (const card of cards) {
+      const key = (card.name + (card.setCode || "")).toLowerCase()
+      const imageData = imageDataMap.get(key)
 
-      // Start new page if needed (except for first card)
-      if (cardsOnCurrentPage === 0 && i > 0) {
-        doc.addPage()
-      }
+      for (let i = 0; i < card.quantity; i++) {
+        // Add new page if needed (skip for first card)
+        if (cardsOnCurrentPage === 0 && !isFirstCard) {
+          doc.addPage()
+        }
+        isFirstCard = false
 
-      // Calculate position in 3x3 grid
-      const row = Math.floor(cardsOnCurrentPage / 3)
-      const col = cardsOnCurrentPage % 3
-      const x = margin + col * cardWidth
-      const y = margin + row * cardHeight
+        // Calculate row and col based on cards placed so far on current page
+        const row = Math.floor(cardsOnCurrentPage / cols)
+        const col = cardsOnCurrentPage % cols
 
-      if (imageData) {
-        try {
-          // Add image to PDF
-          doc.addImage(
-            imageData,
-            "JPEG",
-            x + 0.05, // Small padding
-            y + 0.05,
-            cardWidth - 0.1,
-            cardHeight - 0.1,
-          )
-        } catch (error) {
-          console.error(`Error adding image for ${name}:`, error)
-          // Draw placeholder rectangle
-          doc.rect(x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1)
+        const x = startX + col * cardWidth
+        const y = startY + row * cardHeight
+
+        // Draw border for each card slot
+        doc.setDrawColor(200, 200, 200)
+        doc.setLineWidth(0.01)
+        doc.rect(x, y, cardWidth, cardHeight)
+
+        if (imageData) {
+          try {
+            const padding = 0.05
+            doc.addImage(imageData, "JPEG", x + padding, y + padding, cardWidth - 2 * padding, cardHeight - 2 * padding)
+          } catch (error) {
+            console.error(`Error adding image for ${card.name}:`, error)
+            // Draw placeholder for failed images
+            doc.setFillColor(245, 245, 245)
+            doc.rect(x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, "F")
+
+            // Add card name as text
+            doc.setFontSize(8)
+            doc.setTextColor(100, 100, 100)
+            const textLines = doc.splitTextToSize(card.name, cardWidth - 0.2)
+            doc.text(textLines, x + 0.1, y + cardHeight / 2, {
+              maxWidth: cardWidth - 0.2,
+            })
+          }
+        } else {
+          // Draw gray placeholder for missing images
+          doc.setFillColor(245, 245, 245)
+          doc.rect(x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, "F")
+
+          // Add card name as text
           doc.setFontSize(10)
-          doc.text(name, x + 0.1, y + cardHeight / 2, {
+          doc.setTextColor(60, 60, 60)
+          const textLines = doc.splitTextToSize(card.name, cardWidth - 0.2)
+          doc.text(textLines, x + 0.1, y + cardHeight / 2 - 0.1, {
+            maxWidth: cardWidth - 0.2,
+          })
+
+          doc.setFontSize(8)
+          doc.setTextColor(150, 150, 150)
+          doc.text("(Image not found)", x + 0.1, y + cardHeight / 2 + 0.2, {
             maxWidth: cardWidth - 0.2,
           })
         }
-      } else {
-        // Draw placeholder for missing cards
-        doc.rect(x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1)
-        doc.setFontSize(12)
-        doc.text(name, x + 0.1, y + cardHeight / 2, {
-          maxWidth: cardWidth - 0.2,
-        })
-        doc.setFontSize(8)
-        doc.text("(Image not found)", x + 0.1, y + cardHeight / 2 + 0.2, {
-          maxWidth: cardWidth - 0.2,
-        })
-      }
 
-      cardsOnCurrentPage++
+        cardsOnCurrentPage++
 
-      // Reset for new page
-      if (cardsOnCurrentPage === 9) {
-        cardsOnCurrentPage = 0
+        // Reset after filling page
+        if (cardsOnCurrentPage === cardsPerPage) {
+          cardsOnCurrentPage = 0
+        }
       }
     }
 
-    // Generate PDF as buffer
-    const pdfBuffer = Buffer.from(doc.output("arraybuffer"))
+    // Generate PDF as Uint8Array
+    const pdfOutput = doc.output("arraybuffer")
+    const pdfBuffer = new Uint8Array(pdfOutput)
 
+    // Return PDF binary response with appropriate headers
     return new NextResponse(pdfBuffer, {
+      status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": 'attachment; filename="mtg-proxy-cards.pdf"',
+        "Content-Disposition": `attachment; filename="proxyprint-cards-${layout}.pdf"`,
+        "Content-Length": pdfBuffer.length.toString(),
+        "Cache-Control": "no-cache",
       },
     })
   } catch (error) {
