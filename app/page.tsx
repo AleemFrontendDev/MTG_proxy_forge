@@ -286,7 +286,7 @@ export default function Home() {
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </Button>
-                {selectedLayout === "avery" && (
+                
                   <Button
                     onClick={() => window.open("/products", "_blank")}
                     variant="outline"
@@ -295,7 +295,7 @@ export default function Home() {
                     <span className="mr-2">🛒</span>
                     Get Avery Sheets
                   </Button>
-                )}
+                
               </div>
             </div>
             {error && (
@@ -529,7 +529,6 @@ export default function Home() {
             </Card>
           )}
 
-          {/* Footer */}
           <div className="text-center text-midnight-500 text-xs sm:text-sm">
             <p className="flex items-center justify-center gap-2 flex-wrap">
               <span>Powered by ProxyPrintr • For playtesting purposes only</span>
