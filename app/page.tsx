@@ -350,7 +350,7 @@ export default function Home() {
 
           {/* Main Input Card */}
           <Card className="mb-8 bg-white/90 backdrop-blur-sm border-midnight-200 shadow-lg">
-            <CardHeader className="pb-4 bg-[rgb(0,54,118)] rounded-t-lg">
+            <CardHeader className="pb-4 bg-[rgb(0,42,64)] rounded-t-lg">
               <CardTitle className="flex text-white items-center gap-2 font-serif text-xl sm:text-2xl">
                 <FileText className="h-5 w-5 sm:h-6 sm:w-6 " />
                 Card List
