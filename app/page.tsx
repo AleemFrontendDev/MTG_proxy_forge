@@ -250,7 +250,7 @@ export default function Home() {
 
   if (showPdfPreview) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-midnight-50 via-white to-tangerine-50">
+      <div className="min-h-screen min-bg-img">
         <div className="p-4 sm:p-6 lg:p-8">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
@@ -265,8 +265,8 @@ export default function Home() {
                   Back to Input
                 </Button>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-midnight-800">PDF Preview</h1>
-                  <p className="text-sm text-midnight-600">
+                  <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white">PDF Preview</h1>
+                  <p className="text-sm text-white">
                     Layout: {selectedLayout === "self-cut" ? "Self-cut (3×3)" : "Avery 95328 (3×2)"}
                   </p>
                 </div>
@@ -330,7 +330,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-midnight-50 via-white to-tangerine-50">
+    <div className="min-h-screen min-bg-img">
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -339,20 +339,20 @@ export default function Home() {
               <img
                 src="/proxyprintr-logo.png"
                 alt="ProxyPrintr logo"
-                className="h-16 w-auto rounded-lg"
+                className="h-16 w-auto rounded-lg shadow-lg bg-white border border-blue-200 border-solid"
                 style={{ minWidth: "200px" }}
               />
             </div>
-            <p className="text-midnight-600 text-base sm:text-lg px-4 font-medium">
+            <p className="text-white text-base sm:text-lg px-4 font-medium">
               Craft printable proxy cards from your Magic: The Gathering collection
             </p>
           </div>
 
           {/* Main Input Card */}
           <Card className="mb-8 bg-white/90 backdrop-blur-sm border-midnight-200 shadow-lg">
-            <CardHeader className="pb-4 bg-gradient-to-r from-midnight-700 to-midnight-800 text-white rounded-t-lg">
-              <CardTitle className="flex items-center gap-2 font-serif text-xl sm:text-2xl">
-                <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+            <CardHeader className="pb-4 bg-[rgb(0,54,118)] rounded-t-lg">
+              <CardTitle className="flex text-white items-center gap-2 font-serif text-xl sm:text-2xl">
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6 " />
                 Card List
               </CardTitle>
               <CardDescription className="text-midnight-100 text-sm sm:text-base">
@@ -529,7 +529,7 @@ export default function Home() {
             </Card>
           )}
 
-          <div className="text-center text-midnight-500 text-xs sm:text-sm">
+          <div className="text-center text-white text-xs sm:text-sm">
             <p className="flex items-center justify-center gap-2 flex-wrap">
               <span>Powered by ProxyPrintr • For playtesting purposes only</span>
             </p>

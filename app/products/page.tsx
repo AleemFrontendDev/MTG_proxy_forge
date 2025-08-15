@@ -8,7 +8,7 @@ import Link from "next/link"
 
 export default function ProductsPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-midnight-50 via-white to-tangerine-50">
+    <div className="min-h-screen min-bg-img">
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
@@ -20,8 +20,8 @@ export default function ProductsPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl sm:text-4xl font-serif font-bold text-midnight-800">Printing Supplies</h1>
-              <p className="text-midnight-600">Get the best materials for your proxy cards</p>
+              <h1 className="text-3xl sm:text-4xl font-serif font-bold text-white">Printing Supplies</h1>
+              <p className="text-white">Get the best materials for your proxy cards</p>
             </div>
           </div>
 
@@ -192,7 +192,7 @@ export default function ProductsPage() {
                     </a>
                   </div>
                 </div>
-
+-
                 <div className="space-y-4">
                   <h3 className="font-serif font-semibold text-midnight-800">Protection & Storage:</h3>
                   <div className="bg-tangerine-50 rounded-lg p-4">
@@ -256,7 +256,7 @@ export default function ProductsPage() {
           </Card>
 
           {/* Footer */}
-          <div className="text-center text-midnight-500 text-sm mt-8">
+          <div className="text-center text-white text-sm mt-8">
             <p>
               ProxyPrintr may earn a commission from purchases made through affiliate links. This helps support the
               development of new features at no extra cost to you.

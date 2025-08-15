@@ -65,21 +65,44 @@ async function imageToBase64(url: string): Promise<string | null> {
 }
 
 // Working rounded rectangle using jsPDF's roundedRect method
-function drawRoundedCard(doc: jsPDF, x: number, y: number, width: number, height: number, radius: number) {
+function drawRoundedCard(doc: jsPDF, x: number, y: number, width: number, height: number, radius: number, layout: "self-cut" | "avery") {
   const r = Math.min(radius, width / 4, height / 4)
 
   if (r <= 0) {
     doc.rect(x, y, width, height)
     return
   }
-
-  // Set drawing properties
-  doc.setDrawColor(200, 200, 200)
-  doc.setLineWidth(0.005)
-
+  if (layout === "avery") {
+    // Set drawing properties
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.06)
+  } else {
+   doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0)
+  }
   // Draw rounded rectangle
   doc.roundedRect(x, y, width, height, r, r)
 }
+function addRoundedImage(
+  doc: jsPDF,
+  imgData: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number         
+) {
+  doc.saveGraphicsState();                
+
+  doc.roundedRect(x, y, w, h, r, r, null); 
+  doc.clip();                              
+
+  doc.addImage(imgData, "JPEG", x, y, w, h); 
+
+  doc.restoreGraphicsState();              
+}
+
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -145,22 +168,18 @@ export async function POST(request: NextRequest) {
       cardsPerPage = 6
       cardWidth = 2.5
       cardHeight = 3.5
-      borderRadius = 0.125 // 1/8" radius for professional business cards
+      borderRadius = 0.125 
       
-      // Define spacing between cards
-      gapX = 0.125  // 1/8" horizontal gap
-      gapY = 0.125  // 1/8" vertical gap
+      gapX = 0.125  
+      gapY = 0.125  
       
-      // Calculate total grid size including gaps
       const totalWidth = (cols * cardWidth) + ((cols - 1) * gapX)
       const totalHeight = (rows * cardHeight) + ((rows - 1) * gapY)
       
-      // Center the grid on the page
       startX = (pageWidth - totalWidth) / 2
       startY = (pageHeight - totalHeight) / 2
 
     } else {
-      // Self-cut: 3 columns x 3 rows (9 cards per page)
       cols = 3
       rows = 3
       cardsPerPage = 9
@@ -168,7 +187,7 @@ export async function POST(request: NextRequest) {
       cardHeight = usableHeight / 3
       startX = margin
       startY = margin
-      borderRadius = 0.0625 // 1/16" radius for self-cut
+      borderRadius = 0.005 
     }
 
     let cardsOnCurrentPage = 0
@@ -204,23 +223,28 @@ export async function POST(request: NextRequest) {
         }
 
         // Draw rounded card border
-        drawRoundedCard(doc, x, y, cardWidth, cardHeight, borderRadius)
+        drawRoundedCard(doc, x, y, cardWidth, cardHeight, borderRadius, layout)
 
-        // Add card image or placeholder
         if (imageData) {
           try {
-            const padding = 0.05
+            let padding: number
+            if (layout === "avery") {
+              padding = 0.02
+            } else {
+              padding = 0.05
+            }
             const imageX = x + padding
             const imageY = y + padding
             const imageWidth = cardWidth - 2 * padding
             const imageHeight = cardHeight - 2 * padding
 
-            doc.addImage(imageData, "JPEG", imageX, imageY, imageWidth, imageHeight)
+            // addRoundedImage(doc, imageData, imageX, imageY, imageWidth, imageHeight, borderRadius);
+            doc.addImage(imageData, "JPEG", imageX, imageY, imageWidth, imageHeight,);
           } catch (error) {
             console.error(`Error adding image for ${card.name}:`, error)
             
-            // doc.setFillColor(245, 245, 245)
-            // drawRoundedCard(doc, x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, borderRadius - 0.05)
+            doc.setFillColor(200, 200, 200)
+            drawRoundedCard(doc, x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, borderRadius - 0.05, layout)
             doc.fill()
 
             // Add card name as text
@@ -234,7 +258,7 @@ export async function POST(request: NextRequest) {
         } else {
           // Draw rounded placeholder for missing images
           doc.setFillColor(245, 245, 245)
-          drawRoundedCard(doc, x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, borderRadius - 0.05)
+          drawRoundedCard(doc, x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, borderRadius - 0.05, layout)
           doc.fill()
 
           // Add card name text
