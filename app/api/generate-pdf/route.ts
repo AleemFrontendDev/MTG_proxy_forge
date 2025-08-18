@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import jsPDF from "jspdf"
+import React from 'react'
+import { Document, Page, View, Image, StyleSheet, Text, pdf } from '@react-pdf/renderer'
+
 
 interface ParsedCard {
   quantity: number
@@ -7,6 +9,7 @@ interface ParsedCard {
   setCode?: string
   cardNumber?: string
 }
+
 
 interface CardData {
   name: string
@@ -20,6 +23,15 @@ interface CardData {
   }>
 }
 
+
+interface ProcessedCard {
+  name: string
+  imageUrl: string | null
+  setCode?: string
+  success: boolean
+}
+
+
 async function fetchCardImage(cardName: string, setCode?: string): Promise<string | null> {
   try {
     let url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`
@@ -27,20 +39,32 @@ async function fetchCardImage(cardName: string, setCode?: string): Promise<strin
       url += `&set=${setCode.toLowerCase()}`
     }
 
-    const response = await fetch(url)
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'ProxyPrint/1.0'
+      }
+    })
+
 
     if (!response.ok) {
-      console.error(`Failed to fetch card: ${cardName}`)
+      console.error(`Failed to fetch card: ${cardName} (${response.status})`)
       return null
     }
 
+
     const cardData: CardData = await response.json()
+    
+    // Check for double-faced cards first
     if (cardData.card_faces && cardData.card_faces[0]?.image_uris?.normal) {
       return cardData.card_faces[0].image_uris.normal
     }
+    
+    // Then check for regular cards
     if (cardData.image_uris?.normal) {
       return cardData.image_uris.normal
     }
+
 
     return null
   } catch (error) {
@@ -49,66 +73,248 @@ async function fetchCardImage(cardName: string, setCode?: string): Promise<strin
   }
 }
 
-async function imageToBase64(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(url)
-    if (!response.ok) return null
 
-    const arrayBuffer = await response.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const base64 = buffer.toString("base64")
-    return `data:image/jpeg;base64,${base64}`
-  } catch (error) {
-    console.error("Error converting image to base64:", error)
-    return null
-  }
+// React-PDF Styles
+const createStyles = (layout: "self-cut" | "avery") => {
+  // Avery layout calculations
+  const cardWidth = 180 // 2.5 inches in points
+  const cardHeight = 255.6 // 3.55 inches in points
+  const borderRadius = 27.36 // 0.38 inches in points
+  const gapX = 72 // 1 inch in points
+  const gapY = 28.8 // 0.4 inches in points
+  const cols = 3
+  const rows = 2
+  const pageWidth = 792 // 11 inches in points (Letter landscape)
+  const pageHeight = 612 // 8.5 inches in points (Letter landscape)
+  
+  const totalWidth = cols * cardWidth + (cols - 1) * gapX
+  const totalHeight = rows * cardHeight + (rows - 1) * gapY
+  const startX = (pageWidth - totalWidth) / 2
+  const startY = (pageHeight - totalHeight) / 2
+
+  return StyleSheet.create({
+    page: {
+      backgroundColor: 'white',
+      ...(layout === "avery" ? {
+        position: 'relative',
+      } : {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        padding: 36,
+        gap: 0,
+      })
+    },
+    cardContainer: {
+      ...(layout === "avery" ? {
+        position: 'absolute',
+        width: cardWidth,
+        height: cardHeight,
+        borderRadius: borderRadius,
+      } : {
+        width: 165,
+        height: 238, 
+        borderRadius: 7.2,
+        margin: 2,
+        
+      }),
+      overflow: 'hidden',
+      border: layout === "avery" ? '0.5pt solid black' : '0.1pt solid #ccc',
+    },
+    cardImage: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      ...(layout === "avery" ? {
+        borderRadius: borderRadius,
+      } : {
+        borderRadius: 7.2,
+      })
+    },
+    placeholderContainer: {
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#f5f5f5',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 8,
+      ...(layout === "avery" ? {
+        borderRadius: borderRadius,
+      } : {
+        borderRadius: 7.2,
+      })
+    },
+    placeholderText: {
+      fontSize: layout === "avery" ? 8 : 10,
+      color: '#3c3c3c',
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    errorText: {
+      fontSize: 6,
+      color: '#999',
+      textAlign: 'center',
+    },
+    setCodeText: {
+      fontSize: 5,
+      color: '#666',
+      textAlign: 'center',
+      position: 'absolute',
+      bottom: 4,
+      left: 0,
+      right: 0,
+    }
+  })
 }
 
-// Working rounded rectangle using jsPDF's roundedRect method
-function drawRoundedCard(
-  doc: jsPDF,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-  layout: "self-cut" | "avery",
-) {
-  const r = Math.min(radius, width / 4, height / 4)
 
-  if (r <= 0) {
-    doc.rect(x, y, width, height)
-    return
+// Card Component
+const CardComponent: React.FC<{
+  card: ProcessedCard
+  layout: "self-cut" | "avery"
+  position?: { left: number; top: number }
+}> = ({ card, layout, position }) => {
+  const styles = createStyles(layout)
+  
+  const containerStyle = layout === "avery" && position 
+    ? { ...styles.cardContainer, left: position.left, top: position.top }
+    : styles.cardContainer
+  
+  if (card.imageUrl && card.success) {
+    return React.createElement(
+      View,
+      { style: containerStyle },
+      React.createElement(Image, { src: card.imageUrl, style: styles.cardImage })
+    )
   }
-  if (layout === "avery") {
-    // Set drawing properties
-    doc.setDrawColor(0, 0, 0)
-    doc.setLineWidth(0.06)
-  } else {
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0)
+
+
+  // Placeholder for missing or failed images
+  return React.createElement(
+    View,
+    { style: containerStyle },
+    React.createElement(
+      View,
+      { style: styles.placeholderContainer },
+      React.createElement(Text, { style: styles.placeholderText }, card.name),
+      React.createElement(
+        Text,
+        { style: styles.errorText },
+        card.success === false ? "(Error loading)" : "(Image not found)"
+      ),
+      card.setCode
+        ? React.createElement(
+            Text,
+            { style: styles.setCodeText },
+            `[${card.setCode.toUpperCase()}]`
+          )
+        : null
+    )
+  )
+}
+
+
+// PDF Document Component
+const CardsPDFDocument: React.FC<{
+  cards: ProcessedCard[]
+  layout: "self-cut" | "avery"
+}> = ({ cards, layout }) => {
+  const styles = createStyles(layout)
+  const cardsPerPage = layout === "avery" ? 6 : 9
+
+  // Avery layout calculations
+  const cardWidth = 180
+  const cardHeight = 255.6
+  const gapX = 72
+  const gapY = 28.8
+  const cols = 3
+  const rows = 2
+  const pageWidth = 792
+  const pageHeight = 612
+  
+  const totalWidth = cols * cardWidth + (cols - 1) * gapX
+  const totalHeight = rows * cardHeight + (rows - 1) * gapY
+  const startX = (pageWidth - totalWidth) / 2
+  const startY = (pageHeight - totalHeight) / 2
+
+  // Split cards into pages
+  const pages: ProcessedCard[][] = []
+  for (let i = 0; i < cards.length; i += cardsPerPage) {
+    pages.push(cards.slice(i, i + cardsPerPage))
   }
-  // Draw rounded rectangle
-  doc.roundedRect(x, y, width, height, r, r)
+
+  return React.createElement(
+    Document,
+    null,
+    pages.map((pageCards: ProcessedCard[], pageIndex: number) =>
+      React.createElement(
+        Page,
+        {
+          key: pageIndex,
+          size: "LETTER",
+          orientation: layout === "avery" ? "landscape" : "portrait",
+          style: styles.page,
+        },
+        pageCards.map((card: ProcessedCard, cardIndex: number) => {
+          if (layout === "avery") {
+            // Calculate position for 3x2 grid
+            const row = Math.floor(cardIndex / cols)
+            const col = cardIndex % cols
+            const left = startX + col * (cardWidth + gapX)
+            const top = startY + row * (cardHeight + gapY)
+            
+            return React.createElement(CardComponent, {
+              key: `${pageIndex}-${cardIndex}`,
+              card,
+              layout,
+              position: { left, top },
+            })
+          } else {
+            return React.createElement(CardComponent, {
+              key: `${pageIndex}-${cardIndex}`,
+              card,
+              layout,
+            })
+          }
+        })
+      )
+    )
+  )
 }
-function addRoundedImage(doc: jsPDF, imgData: string, x: number, y: number, w: number, h: number, r: number) {
-  doc.saveGraphicsState()
 
-  doc.roundedRect(x, y, w, h, r, r, null)
-  doc.clip()
 
-  doc.addImage(imgData, "JPEG", x, y, w, h)
-
-  doc.restoreGraphicsState()
+export interface PostRequestBody {
+  cards: ParsedCard[]
+  layout?: "self-cut" | "avery"
 }
+
+
+export interface UniqueCard {
+  name: string
+  setCode?: string
+}
+
+
+export interface ImageData {
+  imageUrl: string | null
+  success: boolean
+}
+
 
 export async function POST(request: NextRequest) {
   try {
-    const { cards, layout = "self-cut" }: { cards: ParsedCard[]; layout?: "self-cut" | "avery" } = await request.json()
+    const { cards, layout = "self-cut" }: { 
+      cards: ParsedCard[]
+      layout?: "self-cut" | "avery" 
+    } = await request.json()
+
 
     if (!cards || cards.length === 0) {
       return NextResponse.json({ error: "No cards provided" }, { status: 400 })
     }
+
+
+    console.log(`Processing ${cards.length} card entries for ${layout} layout`)
+
 
     // Get unique cards to avoid duplicate API calls
     const uniqueCardsMap = new Map<string, { name: string; setCode?: string }>()
@@ -119,169 +325,67 @@ export async function POST(request: NextRequest) {
       }
     }
 
+
+    console.log(`Fetching ${uniqueCardsMap.size} unique cards`)
+
+
     // Fetch all unique card images
     const uniqueCardsArray = Array.from(uniqueCardsMap.values())
     const imagePromises = uniqueCardsArray.map(async (card) => {
-      const imageUrl = await fetchCardImage(card.name, card.setCode)
-      const imageData = imageUrl ? await imageToBase64(imageUrl) : null
-      return { key: (card.name + (card.setCode || "")).toLowerCase(), imageData }
+      try {
+        const imageUrl = await fetchCardImage(card.name, card.setCode)
+        const key = (card.name + (card.setCode || "")).toLowerCase()
+        return { key, imageUrl, success: !!imageUrl, name: card.name, setCode: card.setCode }
+      } catch (error) {
+        console.error(`Failed to process card ${card.name}:`, error)
+        const key = (card.name + (card.setCode || "")).toLowerCase()
+        return { key, imageUrl: null, success: false, name: card.name, setCode: card.setCode }
+      }
     })
+
 
     const images = await Promise.all(imagePromises)
-    const imageDataMap = new Map<string, string | null>()
-    images.forEach(({ key, imageData }) => {
-      imageDataMap.set(key, imageData)
+    const imageDataMap = new Map<string, { imageUrl: string | null; success: boolean }>()
+    
+    images.forEach(({ key, imageUrl, success }) => {
+      imageDataMap.set(key, { imageUrl, success })
     })
 
-    const doc = new jsPDF({
-      orientation: layout === "avery" ? "landscape" : "portrait",
-      unit: "in",
-      format: "letter",
-    })
 
-    const pageWidth = layout === "avery" ? 11 : 8.5
-    const pageHeight = layout === "avery" ? 8.5 : 11
-    const margin = 0.5
-    const usableWidth = pageWidth - 2 * margin
-    const usableHeight = pageHeight - 2 * margin
+    console.log(`Successfully loaded ${images.filter(img => img.success).length}/${images.length} images`)
 
-    // Layout-specific dimensions
-    let cardWidth: number
-    let cardHeight: number
-    let cardsPerPage: number
-    let cols: number
-    let rows: number
-    let startX: number
-    let startY: number
-    let borderRadius: number
-    let gapX = 0
-    let gapY = 0
 
-    if (layout === "avery") {
-      cols = 3
-      rows = 2
-      cardsPerPage = 6
-      cardWidth = 2.5 // Width is now the longer dimension
-      cardHeight = 3.55 // Height is now the shorter dimension
-      borderRadius = 0.5
-
-      gapX = 1.1 // Horizontal gap between cards
-      gapY = 0.6 // Vertical gap between cards
-
-      const totalWidth = cols * cardWidth + (cols - 1) * gapX
-      const totalHeight = rows * cardHeight + (rows - 1) * gapY
-
-      startX = (pageWidth - totalWidth) / 2
-      startY = (pageHeight - totalHeight) / 2
-    } else {
-      cols = 3
-      rows = 3
-      cardsPerPage = 9
-      cardWidth = usableWidth / 3
-      cardHeight = usableHeight / 3
-      startX = margin
-      startY = margin
-      borderRadius = 0.005
-    }
-
-    let cardsOnCurrentPage = 0
-    let isFirstCard = true
-
-    // Process each card with its quantity
+    // Create processed cards array with quantities
+    const processedCards: ProcessedCard[] = []
+    
     for (const card of cards) {
       const key = (card.name + (card.setCode || "")).toLowerCase()
       const imageData = imageDataMap.get(key)
-
-      // Add each card based on its quantity
+      
+      // Add card multiple times based on quantity
       for (let i = 0; i < card.quantity; i++) {
-        // Add new page if needed (skip for first card)
-        if (cardsOnCurrentPage === 0 && !isFirstCard) {
-          doc.addPage()
-        }
-        isFirstCard = false
-
-        // Calculate position on current page
-        const row = Math.floor(cardsOnCurrentPage / cols)
-        const col = cardsOnCurrentPage % cols
-
-        let x: number, y: number
-
-        if (layout === "avery") {
-          // Position with gaps
-          x = startX + col * (cardWidth + gapX)
-          y = startY + row * (cardHeight + gapY)
-        } else {
-          // Self-cut positioning
-          x = startX + col * cardWidth
-          y = startY + row * cardHeight
-        }
-
-        // Draw rounded card border
-        // drawRoundedCard(doc, x, y, cardWidth, cardHeight, borderRadius, layout)
-
-        if (imageData) {
-          try {
-            let padding: number
-            if (layout === "avery") {
-              padding = 0.02
-            } else {
-              padding = 0.05
-            }
-            const imageX = x + padding
-            const imageY = y + padding
-            const imageWidth = cardWidth - 2 * padding
-            const imageHeight = cardHeight - 2 * padding
-
-            doc.addImage(imageData, "JPEG", imageX, imageY, imageWidth, imageHeight)
-          } catch (error) {
-            console.error(`Error adding image for ${card.name}:`, error)
-
-            doc.setFillColor(200, 200, 200)
-            drawRoundedCard(doc, x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, borderRadius - 0.05, layout)
-            doc.fill()
-
-            // Add card name as text
-            doc.setFontSize(8)
-            doc.setTextColor(100, 100, 100)
-            const textLines = doc.splitTextToSize(card.name, cardWidth - 0.2)
-            doc.text(textLines, x + 0.1, y + cardHeight / 2, {
-              maxWidth: cardWidth - 0.2,
-            })
-          }
-        } else {
-          // Draw rounded placeholder for missing images
-          doc.setFillColor(245, 245, 245)
-          drawRoundedCard(doc, x + 0.05, y + 0.05, cardWidth - 0.1, cardHeight - 0.1, borderRadius - 0.05, layout)
-          doc.fill()
-
-          // Add card name text
-          doc.setFontSize(10)
-          doc.setTextColor(60, 60, 60)
-          const textLines = doc.splitTextToSize(card.name, cardWidth - 0.2)
-          doc.text(textLines, x + 0.1, y + cardHeight / 2 - 0.1, {
-            maxWidth: cardWidth - 0.2,
-          })
-
-          // Add "image not found" text
-          doc.setFontSize(8)
-          doc.setTextColor(150, 150, 150)
-          doc.text("(Image not found)", x + 0.1, y + cardHeight / 2 + 0.2, {
-            maxWidth: cardWidth - 0.2,
-          })
-        }
-
-        cardsOnCurrentPage++
-
-        // Reset page counter when page is full
-        if (cardsOnCurrentPage === cardsPerPage) {
-          cardsOnCurrentPage = 0
-        }
+        processedCards.push({
+          name: card.name,
+          imageUrl: imageData?.imageUrl || null,
+          setCode: card.setCode,
+          success: imageData?.success || false
+        })
       }
     }
 
-    // Generate PDF output
-    const pdfOutput = doc.output("arraybuffer")
-    const pdfBuffer = new Uint8Array(pdfOutput)
+
+    console.log(`Will generate ${processedCards.length} total card instances`)
+
+
+    // Generate PDF using React-PDF
+    const pdfDocument = React.createElement(CardsPDFDocument, { cards: processedCards, layout });
+
+
+    const pdfBuffer = await pdf(pdfDocument).toBuffer()
+
+
+    console.log(`Generated PDF with ${processedCards.length} cards`)
+
 
     // Return PDF with proper headers
     return new NextResponse(pdfBuffer, {
@@ -289,7 +393,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'inline; filename="proxyprint-cards.pdf"',
-        "Content-Length": pdfBuffer.length.toString(),
+        // "Content-Length": pdfBuffer.length.toString(),
         "Cache-Control": "no-cache, no-store, must-revalidate",
         Pragma: "no-cache",
         Expires: "0",
@@ -299,11 +403,14 @@ export async function POST(request: NextRequest) {
         "Access-Control-Allow-Headers": "Content-Type",
       },
     })
+
+
   } catch (error) {
     console.error("Error generating PDF:", error)
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to generate PDF",
+        details: error instanceof Error ? error.stack : undefined
       },
       { status: 500 },
     )
