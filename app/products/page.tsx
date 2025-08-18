@@ -7,7 +7,7 @@ import { ArrowLeft, ExternalLink, CheckCircle, Star, Package, Shield } from "luc
 import Link from "next/link"
 
 export default function ProductsPage() {
-  return (
+  return ( 
     <div className="min-h-screen min-bg-img">
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
