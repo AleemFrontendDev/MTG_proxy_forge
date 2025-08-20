@@ -168,7 +168,7 @@ export default function ProductsPage() {
           </Card>
 
           {/* Additional Products */}
-          <Card className="mb-8 bg-white/90 backdrop-blur-sm border-midnight-200 shadow-lg">
+          {/* <Card className="mb-8 bg-white/90 backdrop-blur-sm border-midnight-200 shadow-lg">
             <CardHeader>
               <CardTitle className="text-xl font-serif text-midnight-800">Other Recommended Supplies</CardTitle>
               <CardDescription className="text-midnight-600">Complete your proxy card setup</CardDescription>
@@ -210,7 +210,7 @@ export default function ProductsPage() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Coming Soon */}
           <Card className="bg-gradient-to-r from-tangerine-50 to-coquelicot-50 border-tangerine-200 shadow-lg">

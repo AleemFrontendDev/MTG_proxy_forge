@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Download, FileText, Eye, ArrowLeft, Scroll, Printer } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox" // ADDED
 
 interface ParsedCard {
   quantity: number
@@ -47,6 +48,7 @@ export default function Home() {
   const [cardCount, setCardCount] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [selectedLayout, setSelectedLayout] = useState<"self-cut" | "avery">("self-cut")
+  const [enableBleed, setEnableBleed] = useState(true) // ADDED
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -168,7 +170,7 @@ export default function Home() {
       }
       const cardData = await response.json()
       if (cardData.card_faces && cardData.card_faces[0]?.image_uris?.normal) {
-        return { name: cardName, imageUrl: cardData.card_faces[0].image_uris.normal }
+        return { name: cardName, imageUrl: cardData.card_faces.image_uris.normal }
       }
       if (cardData.image_uris?.normal) {
         return { name: cardName, imageUrl: cardData.image_uris.normal }
@@ -192,7 +194,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ cards, layout: selectedLayout }),
+        body: JSON.stringify({ cards, layout: selectedLayout, enableBleed }), // ADDED enableBleed
       })
       if (!response.ok) {
         const errorText = await response.text()
@@ -268,6 +270,7 @@ export default function Home() {
                   <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white">PDF Preview</h1>
                   <p className="text-sm text-white">
                     Layout: {selectedLayout === "self-cut" ? "Self-cut (3×3)" : "Avery 95328 (3×2)"}
+                    {enableBleed ? " with bleed" : ""} {/* ADDED status text only */}
                   </p>
                 </div>
               </div>
@@ -286,16 +289,15 @@ export default function Home() {
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </Button>
-                
-                  <Button
-                    onClick={() => window.open("/products", "_blank")}
-                    variant="outline"
-                    className="border-tangerine-300 text-tangerine-700 hover:bg-tangerine-50 font-semibold shadow-lg bg-white"
-                  >
-                    <span className="mr-2">🛒</span>
-                    Get Avery Sheets
-                  </Button>
-                
+
+                <Button
+                  onClick={() => window.open("/products", "_blank")}
+                  variant="outline"
+                  className="border-tangerine-300 text-tangerine-700 hover:bg-tangerine-50 font-semibold shadow-lg bg-white"
+                >
+                  <span className="mr-2">🛒</span>
+                  Get Printing Materials
+                </Button>
               </div>
             </div>
             {error && (
@@ -343,9 +345,19 @@ export default function Home() {
                 style={{ minWidth: "200px" }}
               />
             </div>
-            <p className="text-white text-base sm:text-lg px-4 font-medium">
-              Craft printable proxy cards from your Magic: The Gathering collection
+            <p className="text-white text-base sm:text-lg px-4 font-medium font-serif tracking-[3px]">
+              Printing proxies should be cheap and easy
             </p>
+          </div>
+          <div className="flex sm:flex-row justify-end mb-3">
+            <Button
+              onClick={() => window.open("/products", "_blank")}
+              variant="outline"
+              className="border-tangerine-300 text-[rgb(0,42,64)] hover:bg-tangerine-50 font-semibold shadow-lg bg-white"
+            >
+              <span className="mr-2">🛒</span>
+              Get Printing Materials
+            </Button>
           </div>
 
           {/* Main Input Card */}
@@ -428,6 +440,24 @@ export default function Home() {
                     </Label>
                   </div>
                 </RadioGroup>
+
+                {/* ADDED: Bleed Option */}
+                <div className="flex items-center space-x-3 p-3 bg-midnight-25 border border-midnight-200 rounded-lg">
+                  <Checkbox
+                    id="enableBleed"
+                    checked={enableBleed}
+                    onCheckedChange={(checked) => setEnableBleed(!!checked)}
+                    className="text-coquelicot-600"
+                  />
+                  <Label htmlFor="enableBleed" className="cursor-pointer">
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-midnight-800">Add Bleed Frame</span>
+                      <span className="text-xs text-midnight-600">
+                        Adds 0.1" black border around cards for home printer alignment
+                      </span>
+                    </div>
+                  </Label>
+                </div>
               </div>
 
               {error && (
@@ -436,6 +466,12 @@ export default function Home() {
                 </Alert>
               )}
             </CardContent>
+            <div className="pb-4 flex justify-center items-center">
+              {" "}
+              <span className="pl-4 text-xs text-midnight-600 font-serif tracking-[0.5px]">
+                Magic: The Gathering proxies ready to print on perforated card stock - no cutting needed.
+              </span>
+            </div>
           </Card>
 
           <div className="flex items-center justify-end mb-[10px]">
@@ -530,8 +566,16 @@ export default function Home() {
           )}
 
           <div className="text-center text-white text-xs sm:text-sm">
-            <p className="flex items-center justify-center gap-2 flex-wrap">
-              <span>Powered by ProxyPrintr • For playtesting purposes only</span>
+            <p className="flex items-center justify-center gap-2 flex-wrap ">
+              <span>
+                Proxies generated here are for personal playtesting and casual use only, not for sale or sanctioned
+                play.
+              </span>
+              <span>
+                ProxyPrintr is a fan-made project built by players, for players. We are not affiliated with, endorsed,
+                sponsored, or specifically approved by Wizards of the Coast, Hasbro, or any other rights holder. Magic:
+                The Gathering™ and all related marks and images are the property of Wizards of the Coast LLC.
+              </span>
             </p>
           </div>
         </div>
