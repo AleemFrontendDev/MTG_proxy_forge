@@ -314,7 +314,7 @@ export default function Home() {
                 <div className="w-full h-[600px] border border-midnight-300 rounded-lg overflow-hidden bg-white shadow-inner">
                   {pdfUrl ? (
                     <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
-                  ) : (
+                  ) : ( 
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <Loader2 className="h-8 w-8 animate-spin text-coquelicot-500 mx-auto mb-2" />
