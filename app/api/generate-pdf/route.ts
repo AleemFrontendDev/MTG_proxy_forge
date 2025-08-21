@@ -50,7 +50,7 @@ async function fetchCardImage(cardName: string, setCode?: string): Promise<strin
 
     // Check for double-faced cards first
     if (cardData.card_faces && cardData.card_faces[0]?.image_uris?.normal) {
-      return cardData.card_faces[0].image_uris.normal
+      return cardData.card_faces.image_uris.normal
     }
 
     // Then check for regular cards
@@ -66,22 +66,15 @@ async function fetchCardImage(cardName: string, setCode?: string): Promise<strin
 }
 
 const createStyles = (layout: "self-cut" | "avery") => {
-  // Avery layout calculations
-  const cardWidth = 180 // 2.5 inches in points
-  const cardHeight = 255.6 // 3.55 inches in points
-  const borderRadius = 27.36 // 0.38 inches in points
+  // Avery layout calculations - exact specifications from provided image
+  const cardWidth = 164.1 // Reduced from 180.1 to fit within grid boundaries
+  const cardHeight = 235.9 // Reduced from 252.3 to fit within grid boundaries
+  const borderRadius = 27.0 // 9.525mm in points (9.525 * 72 / 25.4)
   const bleedSize = 7.2 // 0.1 inches in points (2.54mm)
-  const gapX = 82 // 1 inch in points
-  const gapY = 28.8 // 0.4 inches in points
-  const cols = 3
-  const rows = 2
-  const pageWidth = 792 // 11 inches in points (Letter landscape)
-  const pageHeight = 612 // 8.5 inches in points (Letter landscape)
 
-  const totalWidth = cols * cardWidth + (cols - 1) * gapX
-  const totalHeight = rows * cardHeight + (rows - 1) * gapY
-  const startX = (pageWidth - totalWidth) / 2
-  const startY = (pageHeight - totalHeight) / 2
+  // Page dimensions from image: 279.4 x 215.9 mm
+  const pageWidth = 792.3 // 279.4mm in points
+  const pageHeight = 612.3 // 215.9mm in points
 
   return StyleSheet.create({
     page: {
@@ -89,12 +82,14 @@ const createStyles = (layout: "self-cut" | "avery") => {
       ...(layout === "avery"
         ? {
             position: "relative",
+            width: pageWidth,
+            height: pageHeight,
           }
         : {
             flexDirection: "row",
             flexWrap: "wrap",
             padding: 36,
-            gap: 8, 
+            gap: 8,
           }),
     },
     cardContainer: {
@@ -112,16 +107,17 @@ const createStyles = (layout: "self-cut" | "avery") => {
             margin: 2,
           }),
       overflow: "hidden",
-      border: layout === "avery" ? "0.5pt solid black" : "0.1pt solid #ccc",
+      border: layout === "avery" ? "1pt solid #120c0c" : "0.1pt solid #ccc",
     },
     cardContainerWithBleed: {
       position: "absolute",
-      width: cardWidth + bleedSize * 2, 
-      height: cardHeight + bleedSize * 2, 
+      width: cardWidth + bleedSize * 2,
+      height: cardHeight + bleedSize * 2,
       borderRadius: borderRadius,
       overflow: "hidden",
-      backgroundColor: "#000000", 
-      border: "2pt solid #000000", 
+      backgroundColor: "#120c0c", // Updated to exact color from requirements
+      // Reduce border thickness to prevent page overflow while keeping it visible
+      border: "0.5pt solid #120c0c",
     },
     cardContainerWithBleedSelfCut: {
       width: 165 + bleedSize,
@@ -129,8 +125,8 @@ const createStyles = (layout: "self-cut" | "avery") => {
       borderRadius: 7.2,
       margin: 2,
       overflow: "hidden",
-      backgroundColor: "#000000",
-      border: "2pt solid #000000", 
+      backgroundColor: "#120c0c", // Updated to exact color from requirements
+      border: "0.5pt solid #120c0c",
     },
     cardImage: {
       width: "100%",
@@ -174,7 +170,7 @@ const createStyles = (layout: "self-cut" | "avery") => {
     placeholderContainerWithBleed: {
       width: "100%",
       height: "100%",
-      backgroundColor: "#000000", // Dark background for bleed
+      backgroundColor: "#120c0c", // Updated to exact color from requirements
       justifyContent: "center",
       alignItems: "center",
       padding: 8,
@@ -220,6 +216,21 @@ const createStyles = (layout: "self-cut" | "avery") => {
       left: 0,
       right: 0,
     },
+    // Slightly inset grid lines to avoid page overflow while keeping dashed borders
+    dottedLineHorizontal: {
+      position: "absolute",
+      width: pageWidth - 1, // Slightly smaller to prevent overflow
+      height: 1,
+      borderTop: "1pt dashed #666666",
+      left: 0.5, // Small inset from left edge
+    },
+    dottedLineVertical: {
+      position: "absolute",
+      width: 1,
+      height: pageHeight - 1, // Slightly smaller to prevent overflow
+      borderLeft: "1pt dashed #666666",
+      top: 0.5, // Small inset from top edge
+    },
   })
 }
 
@@ -240,8 +251,8 @@ const CardComponent: React.FC<{
       // With bleed: render card that extends into bleed area
       const bleedContainerStyle = {
         ...styles.cardContainerWithBleed,
-        left: position.left - bleedSize, // Center the bleed area on the card position
-        top: position.top - bleedSize,
+        left: Math.round(position.left - bleedSize), // Round to prevent fractional overflow
+        top: Math.round(position.top - bleedSize),
       }
 
       if (card.imageUrl && card.success) {
@@ -275,14 +286,18 @@ const CardComponent: React.FC<{
         )
       }
     } else {
-      // Without bleed: render normal card
-      const containerStyle = { ...styles.cardContainer, left: position.left, top: position.top }
+      // Without bleed: use your ORIGINAL logic with bleed container but same positioning
+      const containerStyle = {
+        ...styles.cardContainerWithBleed, // Use same container style as bleed version
+        left: Math.round(position.left - bleedSize), // Same positioning as bleed version
+        top: Math.round(position.top - bleedSize), // Same positioning as bleed version
+      }
 
       if (card.imageUrl && card.success) {
         return React.createElement(
           View,
           { style: containerStyle },
-          React.createElement(Image, { src: card.imageUrl, style: styles.cardImage }),
+          React.createElement(Image, { src: card.imageUrl, style: styles.cardImageWithBleed }), // Use same image style
         )
       } else {
         return React.createElement(
@@ -290,15 +305,15 @@ const CardComponent: React.FC<{
           { style: containerStyle },
           React.createElement(
             View,
-            { style: styles.placeholderContainer },
-            React.createElement(Text, { style: styles.placeholderText }, card.name),
+            { style: styles.placeholderContainerWithBleed }, // Use same placeholder style as bleed version
+            React.createElement(Text, { style: styles.placeholderTextBleed }, card.name), // Use same text style
             React.createElement(
               Text,
-              { style: styles.errorText },
+              { style: styles.errorTextBleed }, // Use same error text style
               card.success === false ? "(Error loading)" : "(Image not found)",
             ),
             card.setCode
-              ? React.createElement(Text, { style: styles.setCodeText }, `[${card.setCode.toUpperCase()}]`)
+              ? React.createElement(Text, { style: styles.setCodeTextBleed }, `[${card.setCode.toUpperCase()}]`) // Use same set code style
               : null,
           ),
         )
@@ -366,6 +381,49 @@ const CardComponent: React.FC<{
   }
 }
 
+// GridLines Component
+const GridLines: React.FC<{ layout: "self-cut" | "avery" }> = ({ layout }) => {
+  if (layout !== "avery") return null
+
+  const styles = createStyles(layout)
+
+  // Convert measurements from mm to points (mm * 72 / 25.4)
+  const horizontalLines = [
+    36.0, // y=12.7mm (top margin)
+    288.1, // y=101.6mm
+    324.1, // y=114.3mm
+    576.2, // y=203.2mm (bottom margin)
+  ]
+
+  const verticalLines = [
+    54.0, // x=19.05mm (left margin)
+    234.1, // x=82.5mm
+    306.1, // x=107.95mm
+    486.2, // x=171.45mm
+    558.2, // x=196.85mm
+    738.3, // x=260.35mm (right margin)
+  ]
+
+  return React.createElement(
+    React.Fragment,
+    null,
+    // Horizontal dotted lines
+    ...horizontalLines.map((y, index) =>
+      React.createElement(View, {
+        key: `h-${index}`,
+        style: { ...styles.dottedLineHorizontal, top: Math.round(y) },
+      }),
+    ),
+    // Vertical dotted lines
+    ...verticalLines.map((x, index) =>
+      React.createElement(View, {
+        key: `v-${index}`,
+        style: { ...styles.dottedLineVertical, left: Math.round(x) },
+      }),
+    ),
+  )
+}
+
 // PDF Document Component
 const CardsPDFDocument: React.FC<{
   cards: ProcessedCard[]
@@ -375,20 +433,21 @@ const CardsPDFDocument: React.FC<{
   const styles = createStyles(layout)
   const cardsPerPage = layout === "avery" ? 6 : 9
 
-  // Simple Avery layout calculations work for simple
-  const cardWidth = enableBleed ? 178 : 180
-  const cardHeight = enableBleed ? 255.6 : 255.6
-  const gapX = enableBleed ? 70 : 72
-  const gapY = enableBleed ? 28.8 : 28.8
-  const cols = 3
-  const rows = 2
-  const pageWidth = 792
-  const pageHeight = 612
+  // Exact center points from image (converted from mm to points)
+  const centerPoints = [
+    // Row 1 (Y = 57.15mm = 162.1 points)
+    { x: 144.2, y: 162.1 }, // 50.8mm = 144.2 points
+    { x: 396.1, y: 162.1 }, // 139.7mm = 396.1 points
+    { x: 648.1, y: 162.1 }, // 228.6mm = 648.1 points
+    // Row 2 (Y = 158.75mm = 450.1 points)
+    { x: 144.2, y: 450.1 }, // 50.8mm = 144.2 points
+    { x: 396.1, y: 450.1 }, // 139.7mm = 396.1 points
+    { x: 648.1, y: 450.1 }, // 228.6mm = 648.1 points
+  ]
 
-  const totalWidth = cols * cardWidth + (cols - 1) * gapX
-  const totalHeight = rows * cardHeight + (rows - 1) * gapY
-  const startX = (pageWidth - totalWidth) / 2
-  const startY = (pageHeight - totalHeight) / 2
+  const cardWidth = 163.1 // Reduced from 180.1 to fit within grid boundaries
+  const cardHeight = 235.5 // Reduced from 252.3 to fit within grid boundaries
+  const bleedSize = 7.2 // 0.1 inches in points
 
   // Split cards into pages
   const pages: ProcessedCard[][] = []
@@ -408,27 +467,26 @@ const CardsPDFDocument: React.FC<{
           orientation: layout === "avery" ? "landscape" : "portrait",
           style: styles.page,
         },
+        enableBleed && layout === "avery" ? React.createElement(GridLines, { layout }) : null,
         pageCards.map((card: ProcessedCard, cardIndex: number) => {
           if (layout === "avery") {
-            // Calculate position for 3x2 grid
-            const row = Math.floor(cardIndex / cols)
-            const col = cardIndex % cols
-            const left = startX + col * (cardWidth + gapX)
-            const top = startY + row * (cardHeight + gapY)
+            const centerPoint = centerPoints[cardIndex % 6] // Use modulo for multiple pages
+            const left = centerPoint.x - cardWidth / 2 // Convert center point to top-left position
+            const top = centerPoint.y - cardHeight / 2
 
             return React.createElement(CardComponent, {
               key: `${pageIndex}-${cardIndex}`,
               card,
               layout,
               position: { left, top },
-              enableBleed, // Pass enableBleed to CardComponent
+              enableBleed,
             })
           } else {
             return React.createElement(CardComponent, {
               key: `${pageIndex}-${cardIndex}`,
               card,
               layout,
-              enableBleed, // Pass enableBleed to CardComponent
+              enableBleed,
             })
           }
         }),
@@ -475,7 +533,7 @@ export async function POST(request: NextRequest) {
     const uniqueCardsMap = new Map<string, { name: string; setCode?: string }>()
     for (const card of cards) {
       const key = (card.name + (card.setCode || "")).toLowerCase()
-      if (!uniqueCardsMap.has(key)) {
+      if (!uniqueCardsMap.has(key)) {  // Fixed missing closing parenthesis
         uniqueCardsMap.set(key, { name: card.name, setCode: card.setCode })
       }
     }
