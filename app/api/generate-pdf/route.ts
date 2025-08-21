@@ -88,7 +88,8 @@ const createStyles = (layout: "self-cut" | "avery") => {
         : {
             flexDirection: "row",
             flexWrap: "wrap",
-            padding: 36,
+            padding: 26,
+            paddingLeft: 42,
             gap: 8,
           }),
     },
@@ -120,8 +121,8 @@ const createStyles = (layout: "self-cut" | "avery") => {
       border: "0.5pt solid #120c0c",
     },
     cardContainerWithBleedSelfCut: {
-      width: 165 + bleedSize,
-      height: 238 + bleedSize,
+      width: 165 ,
+      height: 238,
       borderRadius: 7.2,
       margin: 2,
       overflow: "hidden",
@@ -243,8 +244,6 @@ const CardComponent: React.FC<{
 }> = ({ card, layout, position, enableBleed = true }) => {
   const styles = createStyles(layout)
   const bleedSize = 7.2 // 0.1 inches in points
-
-  console.log(`[v0] Rendering card ${card.name} with bleed: ${enableBleed}`) // Added debug logging
 
   if (layout === "avery" && position) {
     if (enableBleed) {

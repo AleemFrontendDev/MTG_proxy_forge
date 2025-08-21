@@ -369,9 +369,9 @@ export default function Home() {
               </CardTitle>
               <CardDescription className="text-midnight-100 text-sm sm:text-base">
                 Enter each card on a new line using the format:{" "}
-                <span className="text-white font-mono text-xs sm:text-sm bg-midnight-600 px-1 rounded">1 Sol Ring</span>{" "}
+                <span className="text-white font-mono text-xs sm:text-sm px-1 rounded">1 Sol Ring</span>{" "}
                 or{" "}
-                <span className="text-white font-mono text-xs sm:text-sm bg-midnight-600 px-1 rounded">
+                <span className="text-white font-mono text-xs sm:text-sm px-1 rounded">
                   2 Lightning Bolt [M21] 123
                 </span>
               </CardDescription>
