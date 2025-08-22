@@ -353,7 +353,7 @@ export default function Home() {
             <Button
               onClick={() => window.open("/products", "_blank")}
               variant="outline"
-              className=" text-[rgb(0,42,64)] hover:bg-tangerine-50 font-semibold shadow-lg bg-white"
+              className="border-tangerine-300 text-[rgb(0,42,64)] hover:bg-tangerine-50 font-semibold shadow-lg bg-white"
             >
               <span className="mr-2">🛒</span>
               Get Printing Materials
