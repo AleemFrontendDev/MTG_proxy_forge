@@ -109,7 +109,7 @@ export default function ProductsPage() {
                 <h3 className="font-serif font-semibold text-midnight-800 mb-4">Where to Buy:</h3>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <a
-                    href="https://www.amazon.com/dp/B00006B8XZ?tag=proxyprintr-20"
+                    href="https://amzn.to/45IsIfK"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block"
@@ -145,7 +145,7 @@ export default function ProductsPage() {
                     rel="noopener noreferrer"
                     className="block"
                   >
-                    <Card className="hover:shadow-md transition-shadow cursor-pointer border-midnight-200 hover:border-midnight-300 bg-white">
+                    <Card className=" hidden hover:shadow-md transition-shadow cursor-pointer border-midnight-200 hover:border-midnight-300 bg-white">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">

@@ -351,13 +351,14 @@ export default function Home() {
           </div>
           <div className="flex sm:flex-row justify-end mb-3">
             <Button
-              onClick={() => window.open("/products", "_blank")}
-              variant="outline"
-              className="border-tangerine-300 text-[rgb(0,42,64)] hover:bg-tangerine-50 font-semibold shadow-lg bg-white"
-            >
-              <span className="mr-2">🛒</span>
-              Get Printing Materials
-            </Button>
+                  onClick={() => window.open("/products", "_blank")}
+                  variant="outline"
+                  className="border-tangerine-300 text-tangerine-700 hover:bg-tangerine-50 font-semibold shadow-lg bg-white"
+                >
+                  <span className="mr-2">🛒</span>
+                  Get Printing Materials
+                </Button>
+                
           </div>
 
           {/* Main Input Card */}

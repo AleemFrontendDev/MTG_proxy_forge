@@ -1,4 +1,4 @@
 {
-  "/api/generate-pdf/route": "app/api/generate-pdf/route.js",
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/products/page": "app/products/page.js"
 }
