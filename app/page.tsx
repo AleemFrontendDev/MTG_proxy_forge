@@ -65,7 +65,11 @@ export default function Home() {
       if (!line) continue
       let cleanLine = line.replace(/\bF\s+/g, "")
       cleanLine = cleanLine.replace(/$$([^)]+)$$/g, "[$1]")
-      const match = cleanLine.match(/^(\d+)\s+(.+?)(?:\s+\[([A-Z0-9]+)\])?(?:\s+(\d+))?$/i)
+      cleanLine = cleanLine.replace(/\(([A-Z0-9]+)\)/gi, '[$1]')
+      const match = cleanLine.match(
+  /^(\d+)\s+(.+?)(?:\s+[\[\(]([A-Z0-9]+)[\]\)])?(?:\s+(\d+))?$/i
+)
+
       if (match) {
         const quantity = Number.parseInt(match[1])
         const name = match[2].trim()
@@ -311,7 +315,7 @@ export default function Home() {
                   <p className="text-lg text-midnight-700 font-semibold">Total Cards: {cardCount}</p>
                   <p className="text-midnight-600">Your proxy cards are ready for printing!</p>
                 </div>
-                <div className="w-full h-[600px] border border-midnight-300 rounded-lg overflow-hidden bg-white shadow-inner">
+                <div className="hidden md:block w-full h-[600px] border border-midnight-300 rounded-lg overflow-hidden bg-white shadow-inner">
                   {pdfUrl ? (
                     <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
                   ) : ( 
@@ -322,6 +326,20 @@ export default function Home() {
                       </div>
                     </div>
                   )}
+                </div>
+                {/* //For Moblie View */}
+                <div className="md:hidden w-full h-auto border border-midnight-300 rounded-lg overflow-hidden bg-white shadow-inner">
+                  
+                    <div className="flex items-center justify-center h-full">
+                      <Button
+                  onClick={handlePrint}
+                  className="bg-midnight-700 hover:bg-midnight-800 text-white font-semibold shadow-lg w-full"
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print
+                </Button>
+                    </div>
+                  
                 </div>
               </CardContent>
             </Card>

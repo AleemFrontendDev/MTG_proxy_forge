@@ -166,51 +166,156 @@ export default function ProductsPage() {
               </div>
             </CardContent>
           </Card>
+          {/* Featured Product – Krylon K01306 Workable Fixatif Spray */}
+<Card className="mb-8 bg-white/90 backdrop-blur-sm border-coquelicot-200 shadow-lg">
+  <CardHeader className="bg-gradient-to-r from-coquelicot-500 to-coquelicot-600 text-white rounded-t-lg">
+    <div className="flex items-start justify-between">
+      <div>
+        <CardTitle className="text-2xl font-serif mb-2">
+          Krylon K01306 Workable Fixatif Spray Clear
+        </CardTitle>
+        <CardDescription className="text-coquelicot-100 text-lg">
+          11-Ounce Aerosol, Matte finish for art protection
+        </CardDescription>
+      </div>
+      <Badge className="bg-white text-coquelicot-600 font-bold">
+        Amazon’s Choice
+      </Badge>
+    </div>
+  </CardHeader>
+  <CardContent className="space-y-6 p-6">
+    <div className="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 className="font-serif font-semibold text-midnight-800 mb-3">
+          Why Krylon Workable Fixatif is Ideal:
+        </h3>
+        <ul className="space-y-2">
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <span className="text-midnight-700">
+              <strong>Workable protection:</strong> Allows reworking of pencil, pastel & chalk
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <span className="text-midnight-700">
+              <strong>Non-yellowing & non-wrinkling:</strong> Clear archival-safe finish
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <span className="text-midnight-700">
+              <strong>Fast drying:</strong> Dry to the touch in 30 minutes
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <span className="text-midnight-700">
+              <strong>Acid-free & archival safe:</strong> Protects against smudging and wrinkling
+            </span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <span className="text-midnight-700">
+              <strong>Matte finish:</strong> Ideal for photographs and prints
+            </span>
+          </li>
+        </ul>
+      </div>
+      <div className="bg-midnight-50 rounded-lg p-4">
+        <h4 className="font-serif font-semibold text-midnight-800 mb-3">
+          Product Specifications:
+        </h4>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-midnight-600">Size:</span>
+            <span className="font-medium text-midnight-800">11 Ounce (Pack of 1)</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-midnight-600">Finish Type:</span>
+            <span className="font-medium text-midnight-800">Matte</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-midnight-600">Item Volume:</span>
+            <span className="font-medium text-midnight-800">11 Fluid Ounces</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-midnight-600">Special Feature:</span>
+            <span className="font-medium text-midnight-800">Washable, Erase-Through Coating</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-midnight-600">Surface Recommendation:</span>
+            <span className="font-medium text-midnight-800">Paper, Art Materials</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-          {/* Additional Products */}
-          {/* <Card className="mb-8 bg-white/90 backdrop-blur-sm border-midnight-200 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-xl font-serif text-midnight-800">Other Recommended Supplies</CardTitle>
-              <CardDescription className="text-midnight-600">Complete your proxy card setup</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="font-serif font-semibold text-midnight-800">For Self-Cut Layout:</h3>
-                  <div className="bg-midnight-50 rounded-lg p-4">
-                    <h4 className="font-medium text-midnight-800 mb-2">Premium Cardstock</h4>
-                    <p className="text-sm text-midnight-600 mb-3">
-                      110lb+ cardstock for professional feel and durability
-                    </p>
-                    <a
-                      href="https://www.amazon.com/s?k=110lb+cardstock&tag=proxyprintr-20"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-coquelicot-600 hover:text-coquelicot-800 font-medium"
-                    >
-                      Shop Cardstock <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
+    {/* Purchase Options */}
+    <div className="border-t border-midnight-200 pt-6">
+      <h3 className="font-serif font-semibold text-midnight-800 mb-4">
+        Where to Buy:
+      </h3>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <a
+          href="https://www.amazon.com/stores/Krylon%C2%AE/page/24B88F03-EED1-4375-9ED3-D29866B63628?is_byline_deeplink=true&deeplink=31833BFB-A65B-4B58-B5FE-B4357AD70180&redirect_store_id=24B88F03-EED1-4375-9ED3-D29866B63628&lp_asin=B00023JE7U&ref_=ast_bln&store_ref=bl_ast_dp_brandLogo_sto"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block"
+        >
+          <Card className="hover:shadow-md transition-shadow cursor-pointer border-coquelicot-200 hover:border-coquelicot-300 bg-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-coquelicot-600" />
+                  <span className="font-semibold text-midnight-800">Amazon</span>
                 </div>
--
-                <div className="space-y-4">
-                  <h3 className="font-serif font-semibold text-midnight-800">Protection & Storage:</h3>
-                  <div className="bg-tangerine-50 rounded-lg p-4">
-                    <h4 className="font-medium text-midnight-800 mb-2">Card Sleeves</h4>
-                    <p className="text-sm text-midnight-600 mb-3">Protect your proxy cards during gameplay</p>
-                    <a
-                      href="https://www.amazon.com/s?k=mtg+card+sleeves&tag=proxyprintr-20"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-tangerine-700 hover:text-tangerine-800 font-medium"
-                    >
-                      Shop Sleeves <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
+                <ExternalLink className="h-4 w-4 text-midnight-500" />
+              </div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  ))}
                 </div>
+                <span className="text-sm text-midnight-600">(4.7/5 • 28,167 ratings)</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-midnight-600">
+                <Shield className="h-4 w-4" />
+                <span>Prime shipping available</span>
               </div>
             </CardContent>
-          </Card> */}
+          </Card>
+        </a>
+
+        <a
+          href="https://amzn.to/3Js4TS5"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block"
+        >
+          <Card className="hidden hover:shadow-md transition-shadow cursor-pointer border-midnight-200 hover:border-midnight-300 bg-white">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-midnight-600" />
+                  <span className="font-semibold text-midnight-800">Krylon Store</span>
+                </div>
+                <ExternalLink className="h-4 w-4 text-midnight-500" />
+              </div>
+              <p className="text-sm text-midnight-600 mb-2">Direct from Krylon</p>
+              <div className="flex items-center gap-2 text-sm text-midnight-600">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span>Bulk pricing available</span>
+              </div>
+            </CardContent>
+          </Card>
+        </a>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+
 
           {/* Coming Soon */}
           <Card className="bg-gradient-to-r from-tangerine-50 to-coquelicot-50 border-tangerine-200 shadow-lg">
@@ -225,33 +330,22 @@ export default function ProductsPage() {
                 <div>
                   <h3 className="font-serif font-semibold text-midnight-800 mb-3">Custom Templates</h3>
                   <ul className="space-y-2 text-sm text-midnight-700">
-                    <li>• Premium card backs and borders</li>
-                    <li>• Vintage and modern frame styles</li>
-                    <li>• Custom watermarks and branding</li>
-                    <li>• Tournament-legal proxy indicators</li>
+                    <li>• Premium card backs</li>
+                    <li>• watermarks</li>
+                  
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-serif font-semibold text-midnight-800 mb-3">ProxyPrintr Supplies</h3>
+                 
                   <ul className="space-y-2 text-sm text-midnight-700">
                     <li>• Pre-cut card sheets optimized for proxies</li>
                     <li>• Professional printing service</li>
-                    <li>• Bulk pricing for playgroups</li>
+                 
                     <li>• Custom deck boxes and accessories</li>
                   </ul>
                 </div>
               </div>
-              <div className="mt-6 p-4 bg-white/60 rounded-lg">
-                <p className="text-sm text-midnight-600 text-center">
-                  Want to be notified when these features launch?{" "}
-                  <a
-                    href="mailto:updates@proxyprintr.com"
-                    className="text-coquelicot-600 hover:text-coquelicot-800 font-medium"
-                  >
-                    Join our mailing list
-                  </a>
-                </p>
-              </div>
+            
             </CardContent>
           </Card>
 
