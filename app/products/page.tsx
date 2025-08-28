@@ -258,7 +258,7 @@ export default function ProductsPage() {
       </h3>
       <div className="grid sm:grid-cols-2 gap-4">
         <a
-          href="https://www.amazon.com/stores/Krylon%C2%AE/page/24B88F03-EED1-4375-9ED3-D29866B63628?is_byline_deeplink=true&deeplink=31833BFB-A65B-4B58-B5FE-B4357AD70180&redirect_store_id=24B88F03-EED1-4375-9ED3-D29866B63628&lp_asin=B00023JE7U&ref_=ast_bln&store_ref=bl_ast_dp_brandLogo_sto"
+          href="https://amzn.to/3Js4TS5"
           target="_blank"
           rel="noopener noreferrer"
           className="block"
@@ -328,10 +328,10 @@ export default function ProductsPage() {
             <CardContent className="p-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="font-serif font-semibold text-midnight-800 mb-3">Custom Templates</h3>
+                  {/* <h3 className="font-serif font-semibold text-midnight-800 mb-3">Custom Templates</h3> */}
                   <ul className="space-y-2 text-sm text-midnight-700">
                     <li>• Premium card backs</li>
-                    <li>• watermarks</li>
+                    <li>• Watermarks</li>
                   
                   </ul>
                 </div>

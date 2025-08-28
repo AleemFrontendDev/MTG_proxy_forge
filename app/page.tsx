@@ -96,16 +96,16 @@ export default function Home() {
         setCardImages([])
 
         try {
-          const uniqueCards: Record<string, { name: string; setCode?: string }> = {}
+          const uniqueCards: Record<string, { name: string; setCode?: string; cardNumber?: string }> = {}
           for (const card of parsed) {
             const key = (card.name + (card.setCode ?? "")).toLowerCase()
-            uniqueCards[key] = { name: card.name, setCode: card.setCode }
+            uniqueCards[key] = { name: card.name, setCode: card.setCode, cardNumber: card.cardNumber, }
           }
           const uniqueCardArray = Object.values(uniqueCards)
           const fetchImagePromises = uniqueCardArray.map(async (card) => {
             try {
               const cardImage = await Promise.race([
-                fetchCardImage(card.name, card.setCode),
+                fetchCardImage(card.name, card.setCode, card.cardNumber),
                 new Promise<CardImage>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000)),
               ])
               return { key: (card.name + (card.setCode ?? "")).toLowerCase(), ...cardImage }
@@ -160,30 +160,40 @@ export default function Home() {
     }
   }
 
-  const fetchCardImage = async (cardName: string, setCode?: string): Promise<CardImage> => {
-    try {
-      let url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`
+  const fetchCardImage = async (cardName: string, setCode?: string, cardNumber?: string): Promise<CardImage> => {
+  try {
+    let url: string;
+
+    if (setCode && cardNumber) {
+      // Fetch specific set + collector number
+      url = `https://api.scryfall.com/cards/${setCode.toLowerCase()}/${cardNumber}`;
+    } else {
+      // Fallback to card name + optional set filter
+      url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`;
       if (setCode) {
-        url += `&set=${setCode.toLowerCase()}`
+        url += `&set=${setCode.toLowerCase()}`;
       }
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(5000), // 5 second timeout
-      })
-      if (!response.ok) {
-        return { name: cardName, imageUrl: null, error: "Card not found" }
-      }
-      const cardData = await response.json()
-      if (cardData.card_faces && cardData.card_faces[0]?.image_uris?.normal) {
-        return { name: cardName, imageUrl: cardData.card_faces.image_uris.normal }
-      }
-      if (cardData.image_uris?.normal) {
-        return { name: cardName, imageUrl: cardData.image_uris.normal }
-      }
-      return { name: cardName, imageUrl: null, error: "No image available" }
-    } catch (error) {
-      return { name: cardName, imageUrl: null, error: "Failed to fetch" }
     }
+
+    const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) {
+      return { name: cardName, imageUrl: null, error: "Card not found" };
+    }
+
+    const cardData = await response.json();
+
+    if (cardData.card_faces && cardData.card_faces[0]?.image_uris?.normal) {
+      return { name: cardName, imageUrl: cardData.card_faces[0].image_uris.normal };
+    }
+    if (cardData.image_uris?.normal) {
+      return { name: cardName, imageUrl: cardData.image_uris.normal };
+    }
+    return { name: cardName, imageUrl: null, error: "No image available" };
+  } catch {
+    return { name: cardName, imageUrl: null, error: "Failed to fetch" };
   }
+};
+
 
   const handleGeneratePdf = async () => {
     if (cards.length === 0) {
