@@ -114,7 +114,7 @@ const createStyles = (layout: Layout) =>
     selfCutCard: {
       width: 165 + BLEED,
       height: 238 + BLEED,
-      // borderRadius: 7.2,
+      borderRadius: 7.2,
       margin: 0,
       overflow: "hidden",
       border: "0.1pt solid #ccc",
@@ -122,7 +122,7 @@ const createStyles = (layout: Layout) =>
     selfCutCardWithBleed: {
       width: 165 + BLEED,
       height: 238 + BLEED,
-      // borderRadius: 7.2,
+      borderRadius: 7.2,
       margin: 0,
       overflow: "hidden",
       backgroundColor: BLEED_FILL,
