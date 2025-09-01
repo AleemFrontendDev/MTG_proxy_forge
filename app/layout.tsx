@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, Playfair_Display } from "next/font/google"
 import "./globals.css"
-
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({
@@ -32,6 +32,7 @@ export default function RootLayout({
        <link rel="icon" type="image/png" href="icon.png" />
       <body className={inter.className}>
           {children}
+          <SpeedInsights />
           <Toaster />
       </body>
     </html>
