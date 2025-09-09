@@ -109,7 +109,7 @@ export default function ProductsPage() {
                 <h3 className="font-serif font-semibold text-midnight-800 mb-4">Where to Buy:</h3>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <a
-                    href="https://amzn.to/45IsIfK"
+                    href="https://amzn.to/4mOFS2c"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block"
