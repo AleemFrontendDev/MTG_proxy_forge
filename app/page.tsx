@@ -47,7 +47,7 @@ export default function Home() {
   const [showPdfPreview, setShowPdfPreview] = useState(false)
   const [cardCount, setCardCount] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [selectedLayout, setSelectedLayout] = useState<"self-cut" | "avery">("self-cut")
+  const [selectedLayout, setSelectedLayout] = useState<"self-cut" | "avery">("avery")
   const [enableBleed, setEnableBleed] = useState(true) // ADDED
 
   useEffect(() => {
